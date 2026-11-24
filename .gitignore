@@ -1,0 +1,11 @@
+# Dados locais: senhas das câmeras e gravações (NUNCA versionar)
+data/
+
+# Dependências e build da interface (gerado por `npm --prefix web run build`)
+node_modules/
+public/
+
+# Sistema/editor
+.DS_Store
+Thumbs.db
+*.log
