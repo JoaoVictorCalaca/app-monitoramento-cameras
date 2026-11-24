@@ -9,14 +9,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Toaster } from '@/components/ui/sonner'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CameraCell } from '@/components/CameraCell'
 import { CameraDialog } from '@/components/CameraDialog'
 import { CameraTree, NO_GROUP } from '@/components/CameraTree'
 import { Playback } from '@/components/Playback'
-import { api, type Camera } from '@/lib/api'
+import { UserMenu } from '@/components/UserMenu'
+import { api, type Camera, type User } from '@/lib/api'
 
 const LAYOUTS = [1, 2, 3, 4, 5, 6, 7, 8] // até 8x8 = 64 câmeras por página
 const SEQ_OPTIONS = [10, 20, 30, 60]
@@ -50,7 +50,8 @@ function Clock() {
   return <span className="tabular-nums">{now.toLocaleDateString('pt-BR')} {now.toLocaleTimeString('pt-BR')}</span>
 }
 
-export default function App() {
+export default function App({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const canEdit = user.role === 'admin' // operador só visualiza
   const [cams, setCams] = useState<Camera[]>([])
   const [layout, setLayout] = useState(() => Math.min(8, Math.max(1, Number(ls.get('layout')) || 2)))
   const [focus, setFocus] = useState<string | null>(null)
@@ -177,10 +178,15 @@ export default function App() {
                 onPick={pick} onToggleRec={toggleRec} onRemove={remove}
                 onEdit={(c) => setDialog({ open: true, camera: c })}
                 onAddCamera={() => setDialog({ open: true })}
+                canEdit={canEdit}
                 reload={load}
               />
-              <Separator />
-              <div className="p-3"><Button className="w-full" onClick={() => setDialog({ open: true })}><Plus />Adicionar câmera</Button></div>
+              {canEdit && (
+                <>
+                  <Separator />
+                  <div className="p-3"><Button className="w-full" onClick={() => setDialog({ open: true })}><Plus />Adicionar câmera</Button></div>
+                </>
+              )}
             </div>
           </aside>
 
@@ -246,6 +252,8 @@ export default function App() {
                   <TooltipContent>Tela cheia (só as câmeras)</TooltipContent>
                 </Tooltip>
               )}
+              <Separator orientation="vertical" className="h-5" />
+              <UserMenu user={user} onLogout={onLogout} onDataChanged={load} />
             </header>
 
             {view === 'live' ? (
@@ -255,7 +263,7 @@ export default function App() {
                   const c = visible[i]
                   return c ? (
                     <CameraCell key={c.id + (focus ? '-hd' : '')} cam={c} hd={!!focus} low={layout >= 5}
-                      onToggleFocus={() => setFocus(focus ? null : c.id)} onToggleRec={() => toggleRec(c)} />
+                      onToggleFocus={() => setFocus(focus ? null : c.id)} onToggleRec={canEdit ? () => toggleRec(c) : undefined} />
                   ) : (
                     <div key={'e' + i} className="flex items-center justify-center rounded-md border border-dashed text-muted-foreground/30"><CctvIcon className="size-4" /></div>
                   )
@@ -280,7 +288,6 @@ export default function App() {
       </div>
       <CameraDialog open={dialog.open} camera={dialog.camera}
         onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))} onSaved={load} />
-      <Toaster theme="dark" />
     </TooltipProvider>
   )
 }

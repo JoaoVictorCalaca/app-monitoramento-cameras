@@ -15,7 +15,7 @@ npm --prefix web install
 npm --prefix web run build
 node server.js
 ```
-Abra http://127.0.0.1:3000.
+Abra http://127.0.0.1:3000. **No primeiro acesso, a tela pede para criar o usuário administrador.**
 
 Desenvolvimento da interface com recarga automática (com o servidor rodando): `npm --prefix web run dev`.
 
@@ -41,6 +41,17 @@ Desenvolvimento da interface com recarga automática (com o servidor rodando): `
 - Reconecta sozinho se a câmera cair; Ctrl+C finaliza os MP4 antes de sair.
 - Câmeras em **H.265** gravam, mas o Chrome pode não reproduzir; para playback no navegador use H.264.
 
+**Usuários**
+- Login com sessão (cookie HttpOnly, SameSite=Strict, 12 h). No primeiro acesso a tela cria o administrador.
+- Perfis: **Administrador** (tudo) e **Operador** (só visualiza ao vivo e gravações, captura imagem e exporta a lista CSV). As permissões valem no servidor, não só na tela.
+- Menu do usuário (canto superior direito): alterar a própria senha, gerenciar usuários, exportar/importar, sair.
+- Trocar ou redefinir senha encerra as outras sessões daquele usuário. 5 erros de login em 15 min bloqueiam o IP por 5 min.
+
+**Exportar / importar**
+- **Lista de câmeras (CSV)**: nome, grupo, IP, porta, status, gravando. Abre no Excel; sem senhas.
+- **Configuração completa (JSON)**: câmeras e grupos, para levar a outro servidor. Pode incluir as senhas das câmeras, que saem criptografadas com uma **frase-senha** escolhida na hora (sem ela o arquivo não importa).
+- Importar: **mesclar** (adiciona e atualiza, reconhecendo câmeras por IP + porta) ou **substituir tudo**. A gravação não é ligada na importação.
+
 ## Como o ao vivo funciona (e por que carrega rápido)
 - O navegador limita 6 conexões HTTP por servidor. Por isso **todas as câmeras da tela passam por uma única conexão** (`/api/live`), num protocolo binário simples: `[tipo][índice][tamanho][JPEG]`.
 - Um FFmpeg por câmera/qualidade converte RTSP → JPEG e é compartilhado entre espectadores.
@@ -60,14 +71,36 @@ Medido com câmeras Hikvision reais na rede local: 16 câmeras frias abrem com m
 | `RETENTION_DAYS` | `7` | Apaga gravações mais antigas |
 | `SEGMENT_SECONDS` | `120` | Duração de cada arquivo gravado |
 | `STREAM_LINGER_MS` | `30000` | Tempo que o FFmpeg fica aquecido sem espectadores |
+| `DATA_DIR` | `data` | Pasta de dados (câmeras, grupos, usuários, chave) |
+| `VMS_SECRET` | (vazio) | Chave das senhas das câmeras (mín. 16 caracteres). Se vazio, usa `data/secret.key` |
+| `SESSION_HOURS` | `12` | Duração da sessão de login |
+| `COOKIE_SECURE` | (vazio) | `1` quando o app estiver atrás de HTTPS |
 
 ## Segurança
-- Escuta só em 127.0.0.1. Para acesso na rede (`HOST=0.0.0.0`) **adicione login antes**: ainda não existe.
-- Senhas das câmeras ficam em `data/cameras.json` em texto puro e nunca são enviadas ao navegador. A pasta `data/` está no `.gitignore`.
+**Senhas das câmeras**
+- Ficam **criptografadas** (AES-256-GCM) em `data/cameras.json`. Senhas antigas em texto puro são convertidas sozinhas na inicialização.
+- A chave fica em `data/secret.key` (gerada no primeiro uso) ou em `VMS_SECRET`. Quem copiar só o `cameras.json`, um backup dele ou uma exportação não consegue ler as senhas.
+- Não dá para usar hash como nas senhas de usuário: o servidor precisa da senha original para abrir o RTSP. Por isso quem tem acesso total ao servidor (arquivo + chave) ainda consegue recuperá-las. Em produção, prefira `VMS_SECRET` definido no serviço, fora da pasta `data/`.
+- **Faça backup de `data/secret.key`** (ou guarde a `VMS_SECRET`): sem a chave, as senhas das câmeras precisam ser digitadas de novo.
+- Mensagens de erro do FFmpeg citam a URL com usuário e senha; o servidor as mascara (`rtsp://***@ip`) antes de mostrar na tela.
+- A senha nunca é enviada ao navegador, nem aparece no CSV ou na exportação sem frase-senha.
+- Limitação: enquanto um stream está aberto, a URL com a senha aparece nos argumentos do processo FFmpeg, visíveis para quem tem acesso ao sistema operacional do servidor.
+
+**Usuários e acesso**
+- Senhas de usuário com scrypt + sal (não reversíveis), em `data/users.json`.
+- Proteções: cookie HttpOnly/SameSite=Strict, alterações só via JSON (contra CSRF), limite de tentativas de login, CSP e cabeçalhos de segurança.
+- Escuta só em 127.0.0.1 por padrão. Para usar na rede: `HOST=0.0.0.0`, de preferência atrás de um proxy HTTPS (com `COOKIE_SECURE=1`). **Crie o administrador antes de expor o servidor**: enquanto não há usuários, qualquer um que abrir a página pode criá-lo.
+- A pasta `data/` está no `.gitignore` e nunca vai para o repositório.
+
+## Produção
+- Os dados ficam no servidor, em `data/`: copie essa pasta (com `secret.key`) para levar a configuração, ou use **Exportar / importar**.
+- Em Docker ou hospedagem com disco temporário, monte `data/` num volume persistente.
+- O servidor precisa estar na mesma rede das câmeras (ou ter VPN até ela).
+- Rode uma única instância (os dados são arquivos JSON).
 
 ## Próximos passos
 1. Limite de espaço em disco para gravações e opção de gravar o substream
-2. Login/usuários
+2. HTTPS embutido / registro de auditoria (quem fez o quê)
 3. Descoberta ONVIF + PTZ
 4. WebRTC/H.264 (go2rtc) no lugar de JPEG, para menos CPU
 5. Eventos/alarmes de movimento

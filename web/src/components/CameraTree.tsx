@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
-  ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger,
+  ContextMenu, ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -38,12 +38,13 @@ type Props = {
   onEdit: (c: Camera) => void
   onRemove: (c: Camera) => void
   onAddCamera: () => void
+  canEdit: boolean               // operador: só visualiza (sem arrastar, editar ou gravar)
   reload: () => Promise<void> | void
 }
 
 // Árvore de grupos: criar/pesquisar/renomear/excluir grupos e mover câmeras arrastando e soltando.
 // Ctrl+clique seleciona várias câmeras; Shift+clique seleciona um intervalo; arrastar move toda a seleção.
-export function CameraTree({ cams, match, filtering, groups, activeId, groupFilter, onGroupFilter, onPick, onToggleRec, onEdit, onRemove, onAddCamera, reload }: Props) {
+export function CameraTree({ cams, match, filtering, groups, activeId, groupFilter, onGroupFilter, onPick, onToggleRec, onEdit, onRemove, onAddCamera, canEdit, reload }: Props) {
   const [groupQuery, setGroupQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -100,12 +101,12 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
   }
 
   function onItemClick(e: React.MouseEvent, c: Camera) {
-    if (e.ctrlKey || e.metaKey) {
+    if (canEdit && (e.ctrlKey || e.metaKey)) {
       setSelected((s) => { const n = new Set(s); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })
       anchor.current = c.id
       return
     }
-    if (e.shiftKey && anchor.current) {
+    if (canEdit && e.shiftKey && anchor.current) {
       const a = flat.findIndex((x) => x.id === anchor.current), b = flat.findIndex((x) => x.id === c.id)
       if (a >= 0 && b >= 0) { const [lo, hi] = a < b ? [a, b] : [b, a]; setSelected(new Set(flat.slice(lo, hi + 1).map((x) => x.id))); return }
     }
@@ -206,12 +207,14 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
           </TooltipTrigger>
           <TooltipContent>Pesquisar grupos</TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger render={<Button size="icon-xs" variant={creating ? 'secondary' : 'ghost'} onClick={() => setCreating(true)} />}>
-            <FolderPlus />
-          </TooltipTrigger>
-          <TooltipContent>Criar grupo</TooltipContent>
-        </Tooltip>
+        {canEdit && (
+          <Tooltip>
+            <TooltipTrigger render={<Button size="icon-xs" variant={creating ? 'secondary' : 'ghost'} onClick={() => setCreating(true)} />}>
+              <FolderPlus />
+            </TooltipTrigger>
+            <TooltipContent>Criar grupo</TooltipContent>
+          </Tooltip>
+        )}
       </div>
       {searchOpen && (
         <div className="relative px-3 pb-1">
@@ -243,7 +246,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
           const over = dragOver === g
           return (
             <div key={g}
-              onDragOver={(e) => onGroupDragOver(e, g)}
+              onDragOver={(e) => canEdit && onGroupDragOver(e, g)}
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver((d) => (d === g ? null : d)) }}
               onDrop={(e) => onGroupDrop(e, g)}
               className={'mb-0.5 rounded-md transition-colors ' + (over ? 'bg-primary/15 ring-1 ring-primary' : dragging ? 'ring-1 ring-dashed ring-border' : '')}>
@@ -255,7 +258,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
                     onBlur={(e) => renameGroup(g, e.currentTarget.value)} />
                 ) : (
                   <button className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={() => toggleClosed(g)}
-                    onDoubleClick={() => g !== NO_GROUP && setRenaming(g)} title={g !== NO_GROUP ? 'Duplo clique para renomear' : undefined}>
+                    onDoubleClick={() => canEdit && g !== NO_GROUP && setRenaming(g)} title={canEdit && g !== NO_GROUP ? 'Duplo clique para renomear' : undefined}>
                     {isClosed ? <ChevronRight className="size-3.5 shrink-0" /> : <ChevronDown className="size-3.5 shrink-0" />}
                     {isClosed ? <Folder className="size-3.5 shrink-0" /> : <FolderOpen className="size-3.5 shrink-0" />}
                     <span className="truncate uppercase tracking-wide">{g}</span>
@@ -273,7 +276,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
                         <TooltipContent>{groupFilter === g ? 'Mostrar todos na grade' : 'Ver só este grupo na grade'}</TooltipContent>
                       </Tooltip>
                     )}
-                    {g !== NO_GROUP && (
+                    {canEdit && g !== NO_GROUP && (
                       <>
                         <Tooltip>
                           <TooltipTrigger render={<Button size="icon-xs" variant="ghost" className="opacity-0 group-hover/g:opacity-100" onClick={() => setRenaming(g)} />}>
@@ -293,21 +296,24 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
                 )}
               </div>
               {!isClosed && list.length === 0 && (
-                <div onContextMenu={(e) => e.stopPropagation()} className="ml-5 mr-1 mb-1 rounded border border-dashed px-2 py-2 text-center text-[11px] text-muted-foreground/70">Arraste câmeras para cá</div>
+                <div onContextMenu={(e) => e.stopPropagation()} className="ml-5 mr-1 mb-1 rounded border border-dashed px-2 py-2 text-center text-[11px] text-muted-foreground/70">{canEdit ? 'Arraste câmeras para cá' : 'Grupo vazio'}</div>
               )}
               {!isClosed && list.map((c) => {
                 const sel = selected.has(c.id)
                 return (
-                  <div key={c.id} draggable onDragStart={(e) => onDragStart(e, c)} onDragEnd={onDragEnd} onClick={(e) => onItemClick(e, c)}
+                  <div key={c.id} draggable={canEdit} onDragStart={(e) => onDragStart(e, c)} onDragEnd={onDragEnd} onClick={(e) => onItemClick(e, c)}
                     onContextMenu={(e) => e.stopPropagation()}
                     className={'group flex cursor-pointer items-center gap-2 rounded-md py-1.5 pl-2 pr-1 ' +
                       (sel ? 'bg-primary/15 ' : activeId === c.id ? 'bg-accent ' : 'hover:bg-accent ')}>
-                    <GripVertical className="size-3.5 shrink-0 cursor-grab text-muted-foreground/40 group-hover:text-muted-foreground" />
+                    {canEdit && <GripVertical className="size-3.5 shrink-0 cursor-grab text-muted-foreground/40 group-hover:text-muted-foreground" />}
                     <StatusDot online={c.online} />
                     <div className="min-w-0 flex-1 leading-tight">
                       <div className="truncate text-sm">{c.name}</div>
                       <div className="truncate text-[11px] text-muted-foreground">{c.recError && c.record ? c.recError : c.host}</div>
                     </div>
+                    {c.record && !canEdit && <Circle className="size-3 animate-pulse fill-red-500 text-red-500" />}
+                    {canEdit && (
+                      <>
                     <Tooltip>
                       <TooltipTrigger render={<Button size="icon-xs" variant="ghost" className={c.record ? '' : 'opacity-0 group-hover:opacity-100'}
                         onClick={(e) => { e.stopPropagation(); onToggleRec(c) }} />}>
@@ -329,6 +335,8 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
                       </TooltipTrigger>
                       <TooltipContent>Remover</TooltipContent>
                     </Tooltip>
+                      </>
+                    )}
                   </div>
                 )
               })}
@@ -338,17 +346,19 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
         <div className="min-h-16" />
       </ContextMenuTrigger>
       <ContextMenuContent className="w-60">
-        <ContextMenuLabel>Câmeras e grupos</ContextMenuLabel>
-        <ContextMenuItem onClick={() => setCreating(true)}><FolderPlus />Novo grupo</ContextMenuItem>
-        <ContextMenuItem onClick={onAddCamera}><Plus />Adicionar câmera</ContextMenuItem>
-        <ContextMenuItem onClick={() => setSearchOpen(true)}><Search />Pesquisar grupos</ContextMenuItem>
+        <ContextMenuGroup>
+          <ContextMenuLabel>Câmeras e grupos</ContextMenuLabel>
+          {canEdit && <ContextMenuItem onClick={() => setCreating(true)}><FolderPlus />Novo grupo</ContextMenuItem>}
+          {canEdit && <ContextMenuItem onClick={onAddCamera}><Plus />Adicionar câmera</ContextMenuItem>}
+          <ContextMenuItem onClick={() => setSearchOpen(true)}><Search />Pesquisar grupos</ContextMenuItem>
+        </ContextMenuGroup>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => setAllClosed(false)}><ChevronsUpDown />Expandir todos os grupos</ContextMenuItem>
         <ContextMenuItem onClick={() => setAllClosed(true)}><ChevronsDownUp />Recolher todos os grupos</ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem disabled={!flat.length} onClick={() => setSelected(new Set(flat.map((c) => c.id)))}>
+        {canEdit && <ContextMenuItem disabled={!flat.length} onClick={() => setSelected(new Set(flat.map((c) => c.id)))}>
           <ListChecks />Selecionar câmeras visíveis<ContextMenuShortcut>{flat.length}</ContextMenuShortcut>
-        </ContextMenuItem>
+        </ContextMenuItem>}
         {selected.size > 0 && (
           <ContextMenuItem onClick={() => setSelected(new Set())}><SquareX />Limpar seleção<ContextMenuShortcut>Esc</ContextMenuShortcut></ContextMenuItem>
         )}
@@ -361,7 +371,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
       </ContextMenuContent>
       </ContextMenu>
       <div className="border-t px-3 py-1.5 text-[10px] leading-snug text-muted-foreground/70">
-        Arraste câmeras para mover entre grupos · Ctrl+clique seleciona várias · Shift+clique seleciona intervalo
+        {canEdit ? 'Arraste câmeras para mover entre grupos · Ctrl+clique seleciona várias · Shift+clique seleciona intervalo' : 'Modo operador: somente visualização'}
       </div>
     </div>
   )

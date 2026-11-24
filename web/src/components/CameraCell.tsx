@@ -10,7 +10,7 @@ import type { Camera } from '@/lib/api'
 type State = 'connecting' | 'preview' | 'live' | 'error'
 
 export function CameraCell({ cam, hd, low, onToggleFocus, onToggleRec }: {
-  cam: Camera; hd: boolean; low: boolean; onToggleFocus: () => void; onToggleRec: () => void
+  cam: Camera; hd: boolean; low: boolean; onToggleFocus: () => void; onToggleRec?: () => void // sem onToggleRec = sem permissão para gravar
 }) {
   const q = hd ? 'main' : low ? 'low' : 'sub' // grades 5x5+ usam resolução menor
   const [state, setState] = useState<State>('connecting')
@@ -105,7 +105,7 @@ export function CameraCell({ cam, hd, low, onToggleFocus, onToggleRec }: {
       {/* barra de ferramentas da janela (como no iVMS): captura, gravação, zoom, ampliar */}
       <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100" onDoubleClick={(e) => e.stopPropagation()}>
         <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={snapshot} />}><CameraIcon /></TooltipTrigger><TooltipContent>Capturar imagem</TooltipContent></Tooltip>
-        <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={onToggleRec} />}><Circle className={cam.record ? 'fill-red-500 text-red-500' : ''} /></TooltipTrigger><TooltipContent>{cam.record ? 'Parar gravação' : 'Gravar'}</TooltipContent></Tooltip>
+        {onToggleRec && <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={onToggleRec} />}><Circle className={cam.record ? 'fill-red-500 text-red-500' : ''} /></TooltipTrigger><TooltipContent>{cam.record ? 'Parar gravação' : 'Gravar'}</TooltipContent></Tooltip>}
         {zoom.s > 1 && <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={() => setZoom({ s: 1, x: 0, y: 0 })} />}><RotateCcw /></TooltipTrigger><TooltipContent>Desfazer zoom</TooltipContent></Tooltip>}
         <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={onToggleFocus} />}>{hd ? <Minimize2 /> : <Maximize2 />}</TooltipTrigger><TooltipContent>{hd ? 'Voltar à grade' : 'Ampliar (zoom digital com a roda do mouse)'}</TooltipContent></Tooltip>
       </div>
