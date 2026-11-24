@@ -15,8 +15,8 @@ const BRANDS = [
 ]
 
 // camera = undefined → nova câmera; senão edita a existente (senha em branco mantém a atual)
-export function CameraDialog({ open, onOpenChange, onSaved, camera, groups }: {
-  open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void; camera?: Camera; groups: string[]
+export function CameraDialog({ open, onOpenChange, onSaved, camera }: {
+  open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void; camera?: Camera
 }) {
   const [brand, setBrand] = useState('hikvision')
   const [busy, setBusy] = useState(false)
@@ -28,7 +28,7 @@ export function CameraDialog({ open, onOpenChange, onSaved, camera, groups }: {
     const g = (k: string) => String(f.get(k) || '').trim()
     const data = {
       name: g('name'), brand, host: g('host'), port: Number(g('port') || 554), user: g('user'), pass: String(f.get('pass') || ''),
-      group: g('group'), mainPath: g('mainPath') || undefined, subPath: g('subPath') || undefined,
+      mainPath: g('mainPath') || undefined, subPath: g('subPath') || undefined,
     }
     setBusy(true)
     try {
@@ -49,17 +49,10 @@ export function CameraDialog({ open, onOpenChange, onSaved, camera, groups }: {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{camera ? 'Editar câmera' : 'Adicionar câmera'}</DialogTitle>
-          <DialogDescription>Conexão via RTSP. Os caminhos dos streams são preenchidos pela marca.</DialogDescription>
+          <DialogDescription>Conexão via RTSP. Para mudar o grupo, arraste a câmera na barra lateral.</DialogDescription>
         </DialogHeader>
         <form key={camera?.id ?? 'new'} onSubmit={submit} className="grid gap-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5"><Label htmlFor="name">Nome</Label><Input id="name" name="name" required defaultValue={camera?.name} placeholder="Entrada principal" /></div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="group">Grupo / área</Label>
-              <Input id="group" name="group" list="groups-list" defaultValue={camera?.group} placeholder="Ex.: Portaria" />
-              <datalist id="groups-list">{groups.map((g) => <option key={g} value={g} />)}</datalist>
-            </div>
-          </div>
+          <div className="grid gap-1.5"><Label htmlFor="name">Nome</Label><Input id="name" name="name" required defaultValue={camera?.name} placeholder="Entrada principal" /></div>
           <div className="grid grid-cols-[1fr_110px] gap-3">
             <div className="grid gap-1.5">
               <Label>Marca</Label>
@@ -88,41 +81,6 @@ export function CameraDialog({ open, onOpenChange, onSaved, camera, groups }: {
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" disabled={busy}>Salvar</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// Define o grupo de várias câmeras de uma vez (ex.: todas as filtradas por IP)
-export function GroupDialog({ open, onOpenChange, ids, groups, onSaved }: {
-  open: boolean; onOpenChange: (o: boolean) => void; ids: string[]; groups: string[]; onSaved: () => void
-}) {
-  const [busy, setBusy] = useState(false)
-  async function submit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const group = String(new FormData(e.currentTarget).get('group') || '').trim()
-    setBusy(true)
-    try {
-      const r = await api.setGroup(ids, group)
-      toast.success(group ? `${r.updated} câmera(s) movidas para "${group}"` : `${r.updated} câmera(s) sem grupo`)
-      onOpenChange(false); onSaved()
-    } catch (err) { toast.error((err as Error).message) } finally { setBusy(false) }
-  }
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Agrupar câmeras</DialogTitle>
-          <DialogDescription>Move as {ids.length} câmera(s) filtradas para um grupo. Deixe vazio para remover do grupo.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="grid gap-3">
-          <Input name="group" list="groups-list-bulk" placeholder="Nome do grupo" autoFocus />
-          <datalist id="groups-list-bulk">{groups.map((g) => <option key={g} value={g} />)}</datalist>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={busy}>Aplicar</Button>
           </DialogFooter>
         </form>
       </DialogContent>

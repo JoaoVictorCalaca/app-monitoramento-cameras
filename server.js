@@ -24,6 +24,19 @@ let cameras = [];
 try { cameras = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch { cameras = []; }
 const save = () => fs.writeFileSync(DATA_FILE, JSON.stringify(cameras, null, 2));
 
+// Grupos/áreas: lista própria para permitir grupos vazios (criados antes de receber câmeras)
+const GROUPS_FILE = path.join(__dirname, 'data', 'groups.json');
+let savedGroups = [];
+try { savedGroups = JSON.parse(fs.readFileSync(GROUPS_FILE, 'utf8')); } catch { savedGroups = []; }
+const saveGroups = () => fs.writeFileSync(GROUPS_FILE, JSON.stringify(savedGroups, null, 2));
+const allGroups = () => [...new Set([...savedGroups, ...cameras.map((c) => c.group).filter(Boolean)])].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+function groupName(v) {
+  const g = String(v ?? '').trim();
+  if (g.length > 60) throw Object.assign(new Error('Nome do grupo muito longo (máx. 60)'), { status: 400 });
+  return g;
+}
+function ensureGroup(g) { if (g && !savedGroups.includes(g)) { savedGroups.push(g); saveGroups(); } }
+
 const PRESETS = {
   hikvision: { port: 554, main: '/Streaming/Channels/101', sub: '/Streaming/Channels/102' },
   dahua:     { port: 554, main: '/cam/realmonitor?channel=1&subtype=0', sub: '/cam/realmonitor?channel=1&subtype=1' },
@@ -323,14 +336,40 @@ http.createServer(async (req, res) => {
       tcpCheck(cam.host, cam.port).then((ok) => online.set(cam.id, ok));
       return json(res, 201, publicCam(cam));
     }
-    if (p === '/api/cameras/group' && req.method === 'POST') { // define o grupo de várias câmeras de uma vez
+    if (p === '/api/cameras/group' && req.method === 'POST') { // move várias câmeras para um grupo ('' = sem grupo)
       const b = await readBody(req);
-      const group = String(b.group || '').trim().slice(0, 60);
+      const group = groupName(b.group);
       const ids = new Set(Array.isArray(b.ids) ? b.ids : []);
       let n = 0;
       for (const c of cameras) if (ids.has(c.id)) { c.group = group; n++; }
-      save();
+      save(); ensureGroup(group);
       return json(res, 200, { updated: n });
+    }
+    if (p === '/api/groups' && req.method === 'GET') return json(res, 200, allGroups());
+    if (p === '/api/groups' && req.method === 'POST') { // criar grupo (pode ficar vazio)
+      const g = groupName((await readBody(req)).name);
+      if (!g) return json(res, 400, { error: 'Informe o nome do grupo' });
+      if (allGroups().some((x) => x.toLowerCase() === g.toLowerCase())) return json(res, 409, { error: 'Já existe um grupo com esse nome' });
+      ensureGroup(g);
+      return json(res, 201, allGroups());
+    }
+    if (p === '/api/groups' && req.method === 'PUT') { // renomear: { from, to }
+      const b = await readBody(req);
+      const from = groupName(b.from), to = groupName(b.to);
+      if (!from || !to) return json(res, 400, { error: 'Nome inválido' });
+      if (from !== to && allGroups().some((x) => x !== from && x.toLowerCase() === to.toLowerCase())) return json(res, 409, { error: 'Já existe um grupo com esse nome' });
+      for (const c of cameras) if (c.group === from) c.group = to;
+      savedGroups = savedGroups.filter((x) => x !== from); ensureGroup(to);
+      save(); saveGroups();
+      return json(res, 200, allGroups());
+    }
+    if (p === '/api/groups' && req.method === 'DELETE') { // excluir: câmeras do grupo ficam "sem grupo"
+      const g = groupName(url.searchParams.get('name'));
+      let n = 0;
+      for (const c of cameras) if (c.group === g) { c.group = ''; n++; }
+      savedGroups = savedGroups.filter((x) => x !== g);
+      save(); saveGroups();
+      return json(res, 200, { moved: n, groups: allGroups() });
     }
     let m = p.match(/^\/api\/cameras\/([\w-]+)\/record$/);
     if (m && req.method === 'POST') {
@@ -384,7 +423,7 @@ http.createServer(async (req, res) => {
     if (!file.startsWith(PUBLIC_DIR) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('404'); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
     fs.createReadStream(file).pipe(res);
-  } catch (e) { json(res, 500, { error: e.message }); }
+  } catch (e) { json(res, e.status || 500, { error: e.message }); }
 }).listen(PORT, HOST, () => console.log(`Mini VMS em http://${HOST}:${PORT}`));
 
 async function shutdown() {

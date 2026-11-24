@@ -4,7 +4,7 @@ export type Camera = {
   record?: boolean; recError?: string; online: boolean | null
 }
 export type CameraInput = {
-  name: string; brand: string; host: string; port: number; user: string; pass: string; group: string
+  name: string; brand: string; host: string; port: number; user: string; pass: string; group?: string
   mainPath?: string; subPath?: string
 }
 export type Segment = { file: string; start: number; end: number; size: number }
@@ -21,6 +21,10 @@ export const api = {
   create: (c: CameraInput) => send<Camera>('/api/cameras', 'POST', c),
   update: (id: string, c: Partial<CameraInput>) => send<Camera>('/api/cameras/' + id, 'PUT', c),
   setGroup: (ids: string[], group: string) => send<{ updated: number }>('/api/cameras/group', 'POST', { ids, group }),
+  groups: async (): Promise<string[]> => (await fetch('/api/groups')).json(),
+  createGroup: (name: string) => send<string[]>('/api/groups', 'POST', { name }),
+  renameGroup: (from: string, to: string) => send<string[]>('/api/groups', 'PUT', { from, to }),
+  deleteGroup: (name: string) => send<{ moved: number }>('/api/groups?name=' + encodeURIComponent(name), 'DELETE'),
   remove: (id: string) => send<{ ok: boolean }>('/api/cameras/' + id, 'DELETE'),
   setRecord: (id: string, enabled: boolean) => send<Camera>(`/api/cameras/${id}/record`, 'POST', { enabled }),
   segments: async (id: string, date: string): Promise<Segment[]> => {

@@ -1,26 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
-  CctvIcon, ChevronDown, ChevronLeft, ChevronRight, Circle, Expand, FolderInput, FolderOpen, LayoutGrid,
-  MonitorPlay, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Repeat, Search, Trash2, X,
+  CctvIcon, ChevronLeft, ChevronRight, Circle, Expand, FolderOpen, LayoutGrid,
+  PanelLeftClose, PanelLeftOpen, Plus, Repeat, Search, X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Toaster } from '@/components/ui/sonner'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CameraCell } from '@/components/CameraCell'
-import { CameraDialog, GroupDialog } from '@/components/CameraDialog'
+import { CameraDialog } from '@/components/CameraDialog'
+import { CameraTree, NO_GROUP } from '@/components/CameraTree'
 import { Playback } from '@/components/Playback'
 import { api, type Camera } from '@/lib/api'
 
 const LAYOUTS = [1, 2, 3, 4, 5, 6, 7, 8] // até 8x8 = 64 câmeras por página
 const SEQ_OPTIONS = [10, 20, 30, 60]
-const NO_GROUP = 'Sem grupo'
 
 const ls = {
   get: (k: string) => { try { return localStorage.getItem(k) } catch { return null } },
@@ -56,20 +55,22 @@ export default function App() {
   const [layout, setLayout] = useState(() => Math.min(8, Math.max(1, Number(ls.get('layout')) || 2)))
   const [focus, setFocus] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ open: boolean; camera?: Camera }>({ open: false })
-  const [groupDialog, setGroupDialog] = useState(false)
+  const [groups, setGroups] = useState<string[]>([])
   const [view, setView] = useState<'live' | 'playback'>('live')
   const [pbCam, setPbCam] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(() => ls.get('sidebar') === 'closed')
   const [query, setQuery] = useState('')
   const [groupFilter, setGroupFilter] = useState<string | null>(null)
-  const [closedGroups, setClosedGroups] = useState<Set<string>>(() => new Set(JSON.parse(ls.get('closedGroups') || '[]')))
   const [page, setPage] = useState(0)
   const [seq, setSeq] = useState(false)
   const [seqSec, setSeqSec] = useState(20)
   const gridRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
-    try { setCams(await api.list()) } catch { toast.error('Servidor indisponível') }
+    try {
+      const [c, g] = await Promise.all([api.list(), api.groups()])
+      setCams(c); setGroups(g)
+    } catch { toast.error('Servidor indisponível') }
   }, [])
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t) }, [load])
 
@@ -81,12 +82,6 @@ export default function App() {
   const match = useMemo(() => matcher(query), [query])
   const searched = useMemo(() => cams.filter(match), [cams, match])
   const filtered = useMemo(() => groupFilter === null ? searched : searched.filter((c) => (c.group || NO_GROUP) === groupFilter), [searched, groupFilter])
-  const groups = useMemo(() => [...new Set(cams.map((c) => c.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [cams])
-  const tree = useMemo(() => {
-    const m = new Map<string, Camera[]>()
-    for (const c of searched) { const g = c.group || NO_GROUP; if (!m.has(g)) m.set(g, []); m.get(g)!.push(c) }
-    return [...m.entries()].sort(([a], [b]) => (a === NO_GROUP ? 1 : b === NO_GROUP ? -1 : a.localeCompare(b, 'pt-BR')))
-  }, [searched])
 
   // ---- paginação e sequência automática (troca de página sozinha, como no iVMS) ----
   const perPage = layout * layout
@@ -139,15 +134,6 @@ export default function App() {
     setFocus(focus === c.id ? null : c.id)
   }
 
-  function toggleGroup(g: string) {
-    setClosedGroups((s) => {
-      const next = new Set(s)
-      if (next.has(g)) next.delete(g); else next.add(g)
-      ls.set('closedGroups', JSON.stringify([...next]))
-      return next
-    })
-  }
-
   const counts = useMemo(() => ({
     online: cams.filter((c) => c.online === true).length,
     offline: cams.filter((c) => c.online === false).length,
@@ -178,81 +164,21 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{query ? `${searched.length} de ${cams.length} câmeras` : `${cams.length} câmeras`}</span>
-                  {query && searched.length > 0 && (
-                    <Button size="xs" variant="ghost" onClick={() => setGroupDialog(true)}><FolderInput />Agrupar filtradas</Button>
-                  )}
+                <div className="text-xs text-muted-foreground">
+                  {query ? `${searched.length} de ${cams.length} câmeras` : `${cams.length} câmeras · dica: faixa 192.168.3.10-50`}
                 </div>
-                {!query && <div className="text-[11px] text-muted-foreground/70">Dica: use uma faixa, ex. 192.168.3.10-50</div>}
               </div>
               <Separator />
-              <ScrollArea className="min-h-0 flex-1 px-2 py-1">
-                {cams.length === 0 && (
-                  <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground">
-                    <CctvIcon className="size-8 opacity-40" />Nenhuma câmera cadastrada
-                  </div>
-                )}
-                {cams.length > 0 && searched.length === 0 && <div className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma câmera encontrada</div>}
-                {tree.map(([g, list]) => {
-                  const closed = closedGroups.has(g) && !query
-                  return (
-                    <div key={g} className="mb-1">
-                      <div className={'group/g flex items-center gap-1 rounded-md px-1 py-1 text-xs font-medium hover:bg-accent/50 ' + (groupFilter === g ? 'text-primary' : 'text-muted-foreground')}>
-                        <button className="flex min-w-0 flex-1 items-center gap-1" onClick={() => toggleGroup(g)}>
-                          {closed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-                          <FolderOpen className="size-3.5" />
-                          <span className="truncate uppercase tracking-wide">{g}</span>
-                          <span className="ml-1 text-muted-foreground/70">{list.length}</span>
-                        </button>
-                        {tree.length > 1 && (
-                          <Tooltip>
-                            <TooltipTrigger render={<Button size="icon-xs" variant="ghost" className={groupFilter === g ? '' : 'opacity-0 group-hover/g:opacity-100'}
-                              onClick={() => { setGroupFilter(groupFilter === g ? null : g); setFocus(null); setView('live') }} />}>
-                              <MonitorPlay />
-                            </TooltipTrigger>
-                            <TooltipContent>{groupFilter === g ? 'Mostrar todos na grade' : 'Ver só este grupo na grade'}</TooltipContent>
-                          </Tooltip>
-                        )}
-                      </div>
-                      {!closed && list.map((c) => {
-                        const active = view === 'playback' ? pbCam === c.id : focus === c.id
-                        return (
-                          <div key={c.id} onClick={() => pick(c)}
-                            className={'group flex cursor-pointer items-center gap-2.5 rounded-md py-1.5 pl-5 pr-1 hover:bg-accent ' + (active ? 'bg-accent' : '')}>
-                            <StatusDot online={c.online} />
-                            <div className="min-w-0 flex-1 leading-tight">
-                              <div className="truncate text-sm">{c.name}</div>
-                              <div className="truncate text-[11px] text-muted-foreground">{c.recError && c.record ? c.recError : c.host}</div>
-                            </div>
-                            <Tooltip>
-                              <TooltipTrigger render={<Button size="icon-xs" variant="ghost" className={c.record ? '' : 'opacity-0 group-hover:opacity-100'}
-                                onClick={(e) => { e.stopPropagation(); toggleRec(c) }} />}>
-                                <Circle className={c.record ? 'animate-pulse fill-red-500 text-red-500' : 'text-muted-foreground'} />
-                              </TooltipTrigger>
-                              <TooltipContent>{c.record ? 'Parar gravação' : 'Gravar (REC)'}</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger render={<Button size="icon-xs" variant="ghost" className="opacity-0 group-hover:opacity-100"
-                                onClick={(e) => { e.stopPropagation(); setDialog({ open: true, camera: c }) }} />}>
-                                <Pencil />
-                              </TooltipTrigger>
-                              <TooltipContent>Editar</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger render={<Button size="icon-xs" variant="ghost" className="opacity-0 group-hover:opacity-100"
-                                onClick={(e) => { e.stopPropagation(); remove(c) }} />}>
-                                <Trash2 className="text-destructive" />
-                              </TooltipTrigger>
-                              <TooltipContent>Remover</TooltipContent>
-                            </Tooltip>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-              </ScrollArea>
+              <CameraTree
+                cams={cams} match={match} filtering={!!query.trim()} groups={groups}
+                activeId={view === 'playback' ? pbCam : focus}
+                groupFilter={groupFilter}
+                onGroupFilter={(g) => { setGroupFilter(g); setFocus(null); if (g !== null) setView('live') }}
+                onPick={pick} onToggleRec={toggleRec} onRemove={remove}
+                onEdit={(c) => setDialog({ open: true, camera: c })}
+                onAddCamera={() => setDialog({ open: true })}
+                reload={load}
+              />
               <Separator />
               <div className="p-3"><Button className="w-full" onClick={() => setDialog({ open: true })}><Plus />Adicionar câmera</Button></div>
             </div>
@@ -352,9 +278,8 @@ export default function App() {
           <Clock />
         </footer>
       </div>
-      <CameraDialog open={dialog.open} camera={dialog.camera} groups={groups}
+      <CameraDialog open={dialog.open} camera={dialog.camera}
         onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))} onSaved={load} />
-      <GroupDialog open={groupDialog} onOpenChange={setGroupDialog} ids={searched.map((c) => c.id)} groups={groups} onSaved={load} />
       <Toaster theme="dark" />
     </TooltipProvider>
   )
