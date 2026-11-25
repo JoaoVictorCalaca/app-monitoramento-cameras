@@ -3,7 +3,7 @@ data/
 
 # Dependências e build da interface (gerado por `npm --prefix web run build`)
 node_modules/
-public/
+/public/
 
 # Sistema/editor
 .DS_Store
