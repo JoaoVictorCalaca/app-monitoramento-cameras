@@ -157,6 +157,8 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
         <div className="flex min-h-0 flex-1">
           <aside className={'shrink-0 overflow-hidden bg-card transition-[width] duration-200 ' + (collapsed ? 'w-0' : 'w-72 border-r')}>
             <div className="flex h-full w-72 flex-col">
+              <CameraTree
+                top={<>
               <div className="flex items-center gap-2 px-4 py-4">
                 <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><CctvIcon className="size-4" /></div>
                 <div className="leading-tight">
@@ -168,7 +170,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
               <div className="space-y-2 px-3 py-3">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filtrar por IP ou nome" className="h-8 pl-8 pr-8" />
+                  <Input onContextMenu={(e) => e.stopPropagation()} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filtrar por IP ou nome" className="h-8 pl-8 pr-8" />
                   {query && (
                     <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setQuery('')} aria-label="Limpar filtro">
                       <X className="size-4" />
@@ -180,7 +182,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
                 </div>
               </div>
               <Separator />
-              <CameraTree
+                </>}
                 cams={cams} match={match} filtering={!!query.trim()} groups={groups}
                 activeId={view === 'playback' ? pbCam : focus}
                 groupFilter={groupFilter}
@@ -190,13 +192,8 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
                 onAddCamera={() => setDialog({ open: true })}
                 canEdit={canEdit}
                 reload={load}
+                bottom={canEdit ? <><Separator /><div className="p-3"><Button className="w-full" onClick={() => setDialog({ open: true })}><Plus />Adicionar câmera</Button></div></> : undefined}
               />
-              {canEdit && (
-                <>
-                  <Separator />
-                  <div className="p-3"><Button className="w-full" onClick={() => setDialog({ open: true })}><Plus />Adicionar câmera</Button></div>
-                </>
-              )}
             </div>
           </aside>
 

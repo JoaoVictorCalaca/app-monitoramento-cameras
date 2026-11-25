@@ -26,6 +26,8 @@ function StatusDot({ online }: { online: boolean | null }) {
 }
 
 type Props = {
+  bottom?: React.ReactNode      // rodapé da barra lateral
+  top?: React.ReactNode         // cabeçalho da barra lateral (também abre o menu de contexto)
   cams: Camera[]                // todas as câmeras
   match: (c: Camera) => boolean // filtro de câmeras (IP/nome) vindo da busca principal
   filtering: boolean
@@ -44,7 +46,7 @@ type Props = {
 
 // Árvore de grupos: criar/pesquisar/renomear/excluir grupos e mover câmeras arrastando e soltando.
 // Ctrl+clique seleciona várias câmeras; Shift+clique seleciona um intervalo; arrastar move toda a seleção.
-export function CameraTree({ cams, match, filtering, groups, activeId, groupFilter, onGroupFilter, onPick, onToggleRec, onEdit, onRemove, onAddCamera, canEdit, reload }: Props) {
+export function CameraTree({ cams, match, filtering, groups, activeId, groupFilter, onGroupFilter, onPick, onToggleRec, onEdit, onRemove, onAddCamera, canEdit, reload, top, bottom }: Props) {
   const [groupQuery, setGroupQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -197,7 +199,9 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <ContextMenu>
+    <ContextMenuTrigger className="flex min-h-0 flex-1 flex-col select-auto">
+      {top}
       {/* barra de grupos: pesquisar e criar */}
       <div className="flex items-center gap-1 px-3 pb-1 pt-2">
         <span className="flex-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Grupos <span className="text-muted-foreground/60">{totalGroups}</span></span>
@@ -219,13 +223,13 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
       {searchOpen && (
         <div className="relative px-3 pb-1">
           <Search className="pointer-events-none absolute left-5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input autoFocus value={groupQuery} onChange={(e) => setGroupQuery(e.target.value)} placeholder="Nome do grupo" className="h-7 pl-7 text-xs"
+          <Input onContextMenu={(e) => e.stopPropagation()} autoFocus value={groupQuery} onChange={(e) => setGroupQuery(e.target.value)} placeholder="Nome do grupo" className="h-7 pl-7 text-xs"
             onKeyDown={(e) => { if (e.key === 'Escape') { setGroupQuery(''); setSearchOpen(false) } }} />
         </div>
       )}
       {creating && (
         <div className="px-3 pb-1">
-          <Input autoFocus placeholder="Nome do novo grupo + Enter" className="h-7 text-xs" maxLength={60}
+          <Input onContextMenu={(e) => e.stopPropagation()} autoFocus placeholder="Nome do novo grupo + Enter" className="h-7 text-xs" maxLength={60}
             onKeyDown={(e) => { if (e.key === 'Enter') createGroup(e.currentTarget.value); if (e.key === 'Escape') setCreating(false) }}
             onBlur={(e) => { if (!e.currentTarget.value.trim()) setCreating(false) }} />
         </div>
@@ -238,8 +242,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
       )}
 
       {/* clique direito na área vazia abre o menu de contexto (grupos e câmeras param a propagação) */}
-      <ContextMenu>
-      <ContextMenuTrigger className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2 select-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
         {tree.length === 0 &&<div className="px-4 py-8 text-center text-sm text-muted-foreground">{groupQuery ? 'Nenhum grupo encontrado' : 'Nenhuma câmera encontrada'}</div>}
         {tree.map(([g, list]) => {
           const isClosed = closed.has(g) && !filtering
@@ -344,7 +347,12 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
           )
         })}
         <div className="min-h-20 flex-1 shrink-0" />
-      </ContextMenuTrigger>
+      </div>
+      <div className="border-t px-3 py-1.5 text-[10px] leading-snug text-muted-foreground/70">
+        {canEdit ? 'Arraste câmeras para mover entre grupos · Ctrl+clique seleciona várias · Shift+clique seleciona intervalo' : 'Modo operador: somente visualização'}
+      </div>
+      {bottom}
+    </ContextMenuTrigger>
       <ContextMenuContent className="w-60">
         <ContextMenuGroup>
           <ContextMenuLabel>Câmeras e grupos</ContextMenuLabel>
@@ -369,10 +377,6 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
           </>
         )}
       </ContextMenuContent>
-      </ContextMenu>
-      <div className="border-t px-3 py-1.5 text-[10px] leading-snug text-muted-foreground/70">
-        {canEdit ? 'Arraste câmeras para mover entre grupos · Ctrl+clique seleciona várias · Shift+clique seleciona intervalo' : 'Modo operador: somente visualização'}
-      </div>
-    </div>
+    </ContextMenu>
   )
 }
