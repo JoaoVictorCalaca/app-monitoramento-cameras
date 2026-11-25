@@ -1,3 +1,5 @@
+import { mockLive } from './demo/mockLive'
+
 // Ao vivo multiplexado: todas as células da tela compartilham UMA conexão com o servidor.
 // (O navegador limita 6 conexões HTTP por servidor; com uma por câmera, as demais ficavam esperando.)
 // Protocolo: [tipo 1B][índice 1B][tamanho 4B BE][dados] — tipo 0=frame JPEG, 1=erro (texto), 2=prévia JPEG
@@ -73,4 +75,5 @@ class LiveMux {
   }
 }
 
-export const live = new LiveMux()
+// Build demo: quadros gerados num <canvas> no navegador, sem servidor
+export const live: { subscribe: (key: string, fn: Listener) => () => void } = import.meta.env.VITE_DEMO ? mockLive : new LiveMux()

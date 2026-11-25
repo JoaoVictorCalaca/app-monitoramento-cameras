@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Download, Film, SkipBack, SkipForward } from
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { api, type Camera, type Segment } from '@/lib/api'
+import { api, recUrl, type Camera, type Segment } from '@/lib/api'
 
 const DAY = 86400000
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -55,7 +55,7 @@ export function Playback({ cams, camId, setCamId }: { cams: Camera[]; camId: str
   const pct = (t: number) => Math.min(100, Math.max(0, ((t - dayStart) / DAY) * 100))
   const frac = (e: React.MouseEvent<HTMLDivElement>) => { const r = e.currentTarget.getBoundingClientRect(); return (e.clientX - r.left) / r.width }
 
-  const url = curSeg && camId ? `/rec/${camId}/${curSeg.file}` : undefined
+  const url = curSeg && camId ? recUrl(camId, curSeg.file) : undefined
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">

@@ -1,0 +1,27 @@
+# Garante que a branch main sempre gera a demo hospedada (Vercel usa `npm --prefix web run build:demo`, ver vercel.json).
+name: Demo build
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm --prefix web ci
+      - name: Build da demo (sem servidor)
+        run: npm --prefix web run build:demo
+      - name: Confere que a build é mesmo a demo
+        run: |
+          test -f public/index.html
+          test -f public/demo/sample.mp4
+          grep -rlq "Modo demonstração" public/assets || (echo "build sem o modo demo" && exit 1)
+          grep -rlq "O sistema já foi configurado" public/assets || (echo "mock da API ausente" && exit 1)
+      - name: Build normal (com servidor) também compila
+        run: npm --prefix web run build

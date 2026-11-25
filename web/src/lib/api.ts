@@ -1,26 +1,8 @@
-export type Camera = {
-  id: string; name: string; brand: string; host: string; port: number; user: string
-  mainPath?: string; subPath?: string; group: string
-  record?: boolean; recError?: string; online: boolean | null; hasPassword?: boolean
-}
-export type CameraInput = {
-  name: string; brand: string; host: string; port: number; user: string; pass: string; group?: string
-  mainPath?: string; subPath?: string
-}
-export type Segment = { file: string; start: number; end: number; size: number }
-export type Role = 'admin' | 'operator'
-export type User = { id: string; username: string; role: Role; createdAt: string }
-export type ImportResult = { added: number; updated: number; removed: number; invalid: string[]; withoutPassword: number }
+import { ApiError, type Camera, type CameraInput, type ImportResult, type Role, type Segment, type User } from './apiTypes'
+import { mockApi, mockCsvHref } from './demo/mock'
 
-export class ApiError extends Error {
-  status: number
-  data: Record<string, unknown>
-  constructor(message: string, status: number, data: Record<string, unknown> = {}) {
-    super(message)
-    this.status = status
-    this.data = data
-  }
-}
+// Tipos e ApiError ficam em apiTypes.ts (o modo demo também precisa deles, sem import circular)
+export * from './apiTypes'
 
 // Chamado quando o servidor responde 401 (sessão expirou ou foi encerrada): a tela volta para o login
 let onUnauthorized: () => void = () => {}
@@ -38,7 +20,7 @@ async function request<T>(url: string, method = 'GET', body?: unknown): Promise<
   return j as T
 }
 
-export const api = {
+const realApi = {
   // câmeras e grupos
   list: () => request<Camera[]>('/api/cameras'),
   create: (c: CameraInput) => request<Camera>('/api/cameras', 'POST', c),
@@ -69,3 +51,9 @@ export const api = {
   exportConfig: (includePasswords: boolean, passphrase?: string) => request<Record<string, unknown>>('/api/export', 'POST', { includePasswords, passphrase }),
   importConfig: (config: unknown, mode: 'merge' | 'replace', passphrase?: string) => request<ImportResult>('/api/import', 'POST', { config, mode, passphrase }),
 }
+
+export const api: typeof realApi = import.meta.env.VITE_DEMO ? mockApi : realApi
+
+// URL de um trecho gravado e do CSV de câmeras (no demo não existe servidor: usa um clipe de exemplo e um data: URL)
+export const recUrl = (camId: string, file: string) => import.meta.env.VITE_DEMO ? `${import.meta.env.BASE_URL}demo/sample.mp4` : `/rec/${camId}/${file}`
+export const csvHref = () => import.meta.env.VITE_DEMO ? mockCsvHref() : '/api/export/cameras.csv'

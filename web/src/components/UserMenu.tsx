@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { api, type ImportResult, type Role, type User } from '@/lib/api'
+import { api, csvHref, type ImportResult, type Role, type User } from '@/lib/api'
 
 const ROLE_LABEL: Record<Role, string> = { admin: 'Administrador', operator: 'Operador' }
 
@@ -269,7 +269,7 @@ function TransferDialog({ open, onOpenChange, isAdmin, onImported }: {
                 <div className="text-sm font-medium">Lista de câmeras (CSV)</div>
                 <div className="text-xs text-muted-foreground">Nome, grupo, IP, status. Abre no Excel. Sem senhas.</div>
               </div>
-              <Button size="sm" variant="outline" render={<a href="/api/export/cameras.csv" download />}><Download />Baixar</Button>
+              <Button size="sm" variant="outline" render={<a href={csvHref()} download="cameras.csv" />}><Download />Baixar</Button>
             </div>
             {isAdmin && (
               <form onSubmit={exportConfig} className="grid gap-3 rounded-md border p-3">

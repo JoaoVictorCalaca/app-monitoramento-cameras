@@ -40,6 +40,13 @@ Como funciona: cada câmera é um vídeo gerado pelo FFmpeg (fundo animado, nome
 
 Contas da demo: `admin` / `demo1234` (tudo) e `visitante` / `visitante1` (só visualiza).
 
+## Demo hospedada (Vercel)
+A Vercel não roda processos longos nem FFmpeg, então a versão hospedada é uma **demo estática**: o mesmo front-end, mas com a API e o vídeo simulados no navegador (`web/src/lib/demo/`). As câmeras são desenhadas num `<canvas>`, as gravações tocam um clipe de exemplo, e câmeras, grupos e usuários funcionam em memória (somem ao recarregar).
+
+- Build: `npm --prefix web run build:demo` (modo Vite `demo`, que liga `VITE_DEMO`). O `vercel.json` já usa esse comando e publica `public/`.
+- A branch `main` é a de produção: todo push nela publica de novo a demo. O workflow `.github/workflows/demo-build.yml` compila a demo (e o build normal) a cada push e pull request, para a `main` nunca ficar sem build.
+- Para publicar: em vercel.com/new, importe este repositório e mantenha `main` como Production Branch. Não precisa configurar mais nada.
+
 ## Rodar
 ```powershell
 npm --prefix web install
