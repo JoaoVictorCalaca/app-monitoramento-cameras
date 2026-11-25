@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { CameraCell } from '@/components/CameraCell'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CameraTree, NO_GROUP } from '@/components/CameraTree'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserMenu } from '@/components/UserMenu'
 import { lazy, Suspense } from 'react'
 import { api, type Camera, type User } from '@/lib/api'
@@ -260,6 +261,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
                 </Tooltip>
               )}
               <Separator orientation="vertical" className="h-5" />
+              <ThemeToggle />
               <UserMenu user={user} onLogout={onLogout} onDataChanged={load} />
             </header>
 

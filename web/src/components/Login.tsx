@@ -1,3 +1,4 @@
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { useState } from 'react'
 import { CctvIcon, Loader2, LogIn, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -28,7 +29,8 @@ export function LoginPage({ setup, onLogin }: { setup: boolean; onLogin: (u: Use
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+      <div className="absolute right-3 top-3"><ThemeToggle /></div>
       <div className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-lg">
         <div className="mb-6 flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground"><CctvIcon className="size-5" /></div>
