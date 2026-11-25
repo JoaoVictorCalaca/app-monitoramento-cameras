@@ -239,7 +239,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
 
       {/* clique direito na área vazia abre o menu de contexto (grupos e câmeras param a propagação) */}
       <ContextMenu>
-      <ContextMenuTrigger className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 select-auto">
+      <ContextMenuTrigger className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2 select-auto">
         {tree.length === 0 &&<div className="px-4 py-8 text-center text-sm text-muted-foreground">{groupQuery ? 'Nenhum grupo encontrado' : 'Nenhuma câmera encontrada'}</div>}
         {tree.map(([g, list]) => {
           const isClosed = closed.has(g) && !filtering
@@ -249,7 +249,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
               onDragOver={(e) => canEdit && onGroupDragOver(e, g)}
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver((d) => (d === g ? null : d)) }}
               onDrop={(e) => onGroupDrop(e, g)}
-              className={'mb-0.5 rounded-md transition-colors ' + (over ? 'bg-primary/15 ring-1 ring-primary' : dragging ? 'ring-1 ring-dashed ring-border' : '')}>
+              className={'mb-0.5 shrink-0 rounded-md transition-colors ' + (over ? 'bg-primary/15 ring-1 ring-primary' : dragging ? 'ring-1 ring-dashed ring-border' : '')}>
               <div onContextMenu={(e) => e.stopPropagation()}
                 className={'group/g flex items-center gap-1 rounded-md px-1 py-1 text-xs font-medium ' + (groupFilter === g ? 'text-primary' : 'text-muted-foreground')}>
                 {renaming === g ? (
@@ -343,7 +343,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
             </div>
           )
         })}
-        <div className="min-h-16" />
+        <div className="min-h-20 flex-1 shrink-0" />
       </ContextMenuTrigger>
       <ContextMenuContent className="w-60">
         <ContextMenuGroup>

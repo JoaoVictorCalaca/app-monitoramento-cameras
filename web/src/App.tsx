@@ -12,10 +12,10 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CameraCell } from '@/components/CameraCell'
-import { CameraDialog } from '@/components/CameraDialog'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CameraTree, NO_GROUP } from '@/components/CameraTree'
-import { Playback } from '@/components/Playback'
 import { UserMenu } from '@/components/UserMenu'
+import { lazy, Suspense } from 'react'
 import { api, type Camera, type User } from '@/lib/api'
 
 const LAYOUTS = [1, 2, 3, 4, 5, 6, 7, 8] // até 8x8 = 64 câmeras por página
@@ -49,6 +49,10 @@ function Clock() {
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t) }, [])
   return <span className="tabular-nums">{now.toLocaleDateString('pt-BR')} {now.toLocaleTimeString('pt-BR')}</span>
 }
+
+// telas pesadas só são baixadas quando usadas
+const Playback = lazy(() => import('@/components/Playback').then((m) => ({ default: m.Playback })))
+const CameraDialog = lazy(() => import('@/components/CameraDialog').then((m) => ({ default: m.CameraDialog })))
 
 export default function App({ user, onLogout }: { user: User; onLogout: () => void }) {
   const canEdit = user.role === 'admin' // operador só visualiza
@@ -122,6 +126,10 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
     } catch (e) { toast.error((e as Error).message) }
   }
 
+  // callbacks estáveis: as janelas (React.memo) não re-renderizam quando só o relógio/estado do App muda
+  const toggleFocus = useCallback((id: string) => setFocus((f) => (f ? null : id)), [])
+  const recRef = useRef<(c: Camera) => void>(() => {})
+  const recStable = useCallback((c: Camera) => recRef.current(c), [])
   async function toggleRec(c: Camera) {
     try {
       await api.setRecord(c.id, !c.record)
@@ -129,6 +137,8 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
       load()
     } catch (e) { toast.error((e as Error).message) }
   }
+
+  recRef.current = toggleRec
 
   function pick(c: Camera) {
     if (view === 'playback') { setPbCam(c.id); return }
@@ -262,15 +272,15 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
                 {Array.from({ length: n * n }, (_, i) => {
                   const c = visible[i]
                   return c ? (
-                    <CameraCell key={c.id + (focus ? '-hd' : '')} cam={c} hd={!!focus} low={layout >= 5}
-                      onToggleFocus={() => setFocus(focus ? null : c.id)} onToggleRec={canEdit ? () => toggleRec(c) : undefined} />
+                    <ErrorBoundary key={c.id + (focus ? '-hd' : '')} compact><CameraCell cam={c} hd={!!focus} low={layout >= 5}
+                      onToggleFocus={toggleFocus} onToggleRec={canEdit ? recStable : undefined} /></ErrorBoundary>
                   ) : (
                     <div key={'e' + i} className="flex items-center justify-center rounded-md border border-dashed text-muted-foreground/30"><CctvIcon className="size-4" /></div>
                   )
                 })}
               </div>
             ) : (
-              <Playback cams={cams} camId={pbCam} setCamId={setPbCam} />
+              <Suspense fallback={null}><Playback cams={cams} camId={pbCam} setCamId={setPbCam} /></Suspense>
             )}
           </main>
         </div>
@@ -286,8 +296,8 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
           <Clock />
         </footer>
       </div>
-      <CameraDialog open={dialog.open} camera={dialog.camera}
-        onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))} onSaved={load} />
+      {dialog.open && <Suspense fallback={null}><CameraDialog open={dialog.open} camera={dialog.camera}
+        onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))} onSaved={load} /></Suspense>}
     </TooltipProvider>
   )
 }

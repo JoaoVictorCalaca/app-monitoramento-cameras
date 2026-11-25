@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Camera as CameraIcon, Circle, Loader2, Maximize2, Minimize2, RotateCcw, VideoOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -9,13 +9,14 @@ import type { Camera } from '@/lib/api'
 
 type State = 'connecting' | 'preview' | 'live' | 'error'
 
-export function CameraCell({ cam, hd, low, onToggleFocus, onToggleRec }: {
-  cam: Camera; hd: boolean; low: boolean; onToggleFocus: () => void; onToggleRec?: () => void // sem onToggleRec = sem permissão para gravar
+export const CameraCell = memo(function CameraCell({ cam, hd, low, onToggleFocus, onToggleRec }: {
+  cam: Camera; hd: boolean; low: boolean; onToggleFocus: (id: string) => void; onToggleRec?: (c: Camera) => void // sem onToggleRec = sem permissão para gravar
 }) {
   const q = hd ? 'main' : low ? 'low' : 'sub' // grades 5x5+ usam resolução menor
   const [state, setState] = useState<State>('connecting')
   const [msg, setMsg] = useState('')
   const img = useRef<HTMLImageElement>(null)
+  const box = useRef<HTMLDivElement>(null)
   const lastBlob = useRef<Blob | null>(null)
   const urlRef = useRef<string | null>(null)
   const stateRef = useRef<State>('connecting')
@@ -57,17 +58,34 @@ export function CameraCell({ cam, hd, low, onToggleFocus, onToggleRec }: {
     toast.success('Captura salva')
   }
 
-  function onWheel(e: React.WheelEvent<HTMLDivElement>) {
-    if (!hd) return
-    const r = e.currentTarget.getBoundingClientRect()
+  // limita o deslocamento para a imagem sempre cobrir a janela (antes dava para arrastá-la para fora e sobrava só preto)
+  function clamp(s: number, x: number, y: number) {
+    const el = box.current
+    if (!el || s <= 1) return { s: 1, x: 0, y: 0 }
+    const mx = (el.clientWidth * (s - 1)) / 2, my = (el.clientHeight * (s - 1)) / 2
+    return { s, x: Math.min(mx, Math.max(-mx, x)), y: Math.min(my, Math.max(-my, y)) }
+  }
+
+  // listener nativo não-passivo: precisa de preventDefault para a roda não rolar a página
+  const wheelRef = useRef<(e: WheelEvent) => void>(() => {})
+  wheelRef.current = (e: WheelEvent) => {
+    if (!hd || !box.current) return
+    e.preventDefault()
+    const r = box.current.getBoundingClientRect()
     const px = e.clientX - r.left - r.width / 2, py = e.clientY - r.top - r.height / 2
     setZoom((z) => {
       const s = Math.min(8, Math.max(1, z.s * (e.deltaY < 0 ? 1.2 : 1 / 1.2)))
-      if (s === 1) return { s: 1, x: 0, y: 0 }
       const k = s / z.s // mantém o ponto sob o cursor parado
-      return { s, x: px - (px - z.x) * k, y: py - (py - z.y) * k }
+      return clamp(s, px - (px - z.x) * k, py - (py - z.y) * k)
     })
   }
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const fn = (e: WheelEvent) => wheelRef.current(e)
+    el.addEventListener('wheel', fn, { passive: false })
+    return () => el.removeEventListener('wheel', fn)
+  }, [])
 
   const showImg = state === 'live' || state === 'preview'
   const tool = 'bg-black/60 text-white backdrop-blur hover:bg-black/80'
@@ -75,10 +93,10 @@ export function CameraCell({ cam, hd, low, onToggleFocus, onToggleRec }: {
   return (
     <div
       className="group relative flex items-center justify-center overflow-hidden rounded-md border bg-black select-none"
-      onDoubleClick={onToggleFocus}
-      onWheel={onWheel}
+      ref={box}
+      onDoubleClick={() => onToggleFocus(cam.id)}
       onMouseDown={(e) => { if (zoom.s > 1) drag.current = { x: e.clientX - zoom.x, y: e.clientY - zoom.y } }}
-      onMouseMove={(e) => { if (drag.current) setZoom((z) => ({ ...z, x: e.clientX - drag.current!.x, y: e.clientY - drag.current!.y })) }}
+      onMouseMove={(e) => { const d = drag.current; if (d) { const nx = e.clientX - d.x, ny = e.clientY - d.y; setZoom((z) => clamp(z.s, nx, ny)) } }}
       onMouseUp={() => { drag.current = null }}
       onMouseLeave={() => { drag.current = null }}
     >
@@ -105,10 +123,10 @@ export function CameraCell({ cam, hd, low, onToggleFocus, onToggleRec }: {
       {/* barra de ferramentas da janela (como no iVMS): captura, gravação, zoom, ampliar */}
       <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100" onDoubleClick={(e) => e.stopPropagation()}>
         <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={snapshot} />}><CameraIcon /></TooltipTrigger><TooltipContent>Capturar imagem</TooltipContent></Tooltip>
-        {onToggleRec && <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={onToggleRec} />}><Circle className={cam.record ? 'fill-red-500 text-red-500' : ''} /></TooltipTrigger><TooltipContent>{cam.record ? 'Parar gravação' : 'Gravar'}</TooltipContent></Tooltip>}
+        {onToggleRec && <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={() => onToggleRec(cam)} />}><Circle className={cam.record ? 'fill-red-500 text-red-500' : ''} /></TooltipTrigger><TooltipContent>{cam.record ? 'Parar gravação' : 'Gravar'}</TooltipContent></Tooltip>}
         {zoom.s > 1 && <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={() => setZoom({ s: 1, x: 0, y: 0 })} />}><RotateCcw /></TooltipTrigger><TooltipContent>Desfazer zoom</TooltipContent></Tooltip>}
-        <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={onToggleFocus} />}>{hd ? <Minimize2 /> : <Maximize2 />}</TooltipTrigger><TooltipContent>{hd ? 'Voltar à grade' : 'Ampliar (zoom digital com a roda do mouse)'}</TooltipContent></Tooltip>
+        <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={() => onToggleFocus(cam.id)} />}>{hd ? <Minimize2 /> : <Maximize2 />}</TooltipTrigger><TooltipContent>{hd ? 'Voltar à grade' : 'Ampliar (zoom digital com a roda do mouse)'}</TooltipContent></Tooltip>
       </div>
     </div>
   )
-}
+})
