@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { LoginPage } from '@/components/Login'
 import { ApiError, api, setUnauthorizedHandler, type User } from '@/lib/api'
 import App from './App'
+import { ConfirmHost } from '@/components/ConfirmHost'
 import { useTheme } from '@/lib/theme'
 
 // Decide entre tela de login, primeiro acesso (criar admin) e o app.
@@ -33,6 +34,7 @@ export default function Root() {
       )}
       {state.status === 'login' && <LoginPage setup={state.setup} onLogin={(user) => setState({ status: 'app', user })} />}
       {state.status === 'app' && <App key={state.user.id} user={state.user} onLogout={() => setState({ status: 'login', setup: false })} />}
+      <ConfirmHost />
       <Toaster theme={resolved} />
     </>
   )

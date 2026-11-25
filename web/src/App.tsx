@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CameraCell } from '@/components/CameraCell'
+import { confirmDialog } from '@/components/ConfirmHost'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CameraTree, NO_GROUP } from '@/components/CameraTree'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -126,7 +127,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
   }, [toggleSidebar, pages, focus, view])
 
   async function remove(c: Camera) {
-    if (!confirm(`Remover "${c.name}"? As gravações já feitas ficam em disco até a retenção apagá-las.`)) return
+    if (!await confirmDialog({ title: `Remover "${c.name}"?`, description: 'As gravações já feitas ficam em disco até a retenção apagá-las.', confirmText: 'Remover' })) return
     try {
       await api.remove(c.id)
       if (focus === c.id) setFocus(null)

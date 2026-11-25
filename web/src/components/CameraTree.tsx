@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/ConfirmHost'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -189,7 +190,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
   }
 
   async function deleteGroup(g: string, count: number) {
-    if (!confirm(`Excluir o grupo "${g}"?${count ? ` As ${count} câmera(s) dele vão para "${NO_GROUP}".` : ''}`)) return
+    if (!await confirmDialog({ title: `Excluir o grupo "${g}"?`, description: count ? `As ${count} câmera(s) dele vão para "${NO_GROUP}".` : undefined })) return
     try {
       await api.deleteGroup(g)
       if (groupFilter === g) onGroupFilter(null)

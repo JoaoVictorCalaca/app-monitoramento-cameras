@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/ConfirmHost'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -146,7 +147,7 @@ function UsersDialog({ open, onOpenChange, me }: { open: boolean; onOpenChange: 
   }
 
   async function remove(u: User) {
-    if (!confirm(`Excluir o usuário "${u.username}"? As sessões dele serão encerradas.`)) return
+    if (!await confirmDialog({ title: `Excluir o usuário "${u.username}"?`, description: 'As sessões dele serão encerradas.' })) return
     try { await api.deleteUser(u.id); toast.success('Usuário excluído'); load() }
     catch (err) { toast.error((err as Error).message) }
   }
@@ -234,7 +235,7 @@ function TransferDialog({ open, onOpenChange, isAdmin, onImported }: {
   async function importConfig(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!file) return
-    if (mode === 'replace' && !confirm('Substituir tudo? Câmeras que não estão no arquivo serão removidas (as gravações em disco ficam até a retenção).')) return
+    if (mode === 'replace' && !await confirmDialog({ title: 'Substituir tudo?', description: 'Câmeras que não estão no arquivo serão removidas (as gravações em disco ficam até a retenção).', confirmText: 'Substituir' })) return
     const passphrase = String(new FormData(e.currentTarget).get('passphrase') || '') || undefined
     setBusy(true)
     try {
