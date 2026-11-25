@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
-import { LoginPage } from '@/components/Login'
+import { LoginPage, type DemoAccount } from '@/components/Login'
 import { ApiError, api, setUnauthorizedHandler, type User } from '@/lib/api'
 import App from './App'
 import { ConfirmHost } from '@/components/ConfirmHost'
@@ -10,7 +10,7 @@ import { useTheme } from '@/lib/theme'
 // Decide entre tela de login, primeiro acesso (criar admin) e o app.
 export default function Root() {
   const { resolved } = useTheme()
-  const [state, setState] = useState<{ status: 'loading' } | { status: 'login'; setup: boolean } | { status: 'app'; user: User }>({ status: 'loading' })
+  const [state, setState] = useState<{ status: 'loading' } | { status: 'login'; setup: boolean; demo?: DemoAccount[] } | { status: 'app'; user: User }>({ status: 'loading' })
 
   const check = useCallback(async () => {
     try {
@@ -18,7 +18,8 @@ export default function Root() {
       setState({ status: 'app', user })
     } catch (err) {
       const setup = err instanceof ApiError && err.data.setupRequired === true
-      setState({ status: 'login', setup })
+      const demo = err instanceof ApiError && Array.isArray(err.data.demo) ? (err.data.demo as DemoAccount[]) : undefined
+      setState({ status: 'login', setup, demo })
     }
   }, [])
 
@@ -32,8 +33,8 @@ export default function Root() {
       {state.status === 'loading' && (
         <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground"><Loader2 className="size-6 animate-spin" /></div>
       )}
-      {state.status === 'login' && <LoginPage setup={state.setup} onLogin={(user) => setState({ status: 'app', user })} />}
-      {state.status === 'app' && <App key={state.user.id} user={state.user} onLogout={() => setState({ status: 'login', setup: false })} />}
+      {state.status === 'login' && <LoginPage setup={state.setup} demo={state.demo} onLogin={(user) => setState({ status: 'app', user })} />}
+      {state.status === 'app' && <App key={state.user.id} user={state.user} onLogout={check} />}
       <ConfirmHost />
       <Toaster theme={resolved} />
     </>

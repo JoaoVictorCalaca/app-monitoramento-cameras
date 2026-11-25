@@ -11,7 +11,8 @@ const sec = require('./lib/security');
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1'; // 0.0.0.0 para acessar de outros PCs (use HTTPS na frente e COOKIE_SECURE=1)
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
-const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, 'data'));
+const demo = require('./lib/demo'); // VMS_DEMO=1: câmeras simuladas pelo FFmpeg, sem hardware
+const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, demo.DEMO ? 'data-demo' : 'data'));
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const REC_DIR = path.resolve(process.env.REC_DIR || path.join(DATA_DIR, 'recordings'));
 const RETENTION_DAYS = Number(process.env.RETENTION_DAYS || 7);         // gravações mais antigas são apagadas
@@ -45,6 +46,7 @@ function decryptPass(stored) {
 
 let cameras = readJson(CAMERAS_FILE, []);
 const save = () => writeJson(CAMERAS_FILE, cameras);
+if (demo.DEMO && !cameras.length) { cameras = demo.cameras(encryptPass); save(); }
 { // migração: senhas em texto puro -> criptografadas
   let migrated = 0;
   for (const c of cameras) if (c.pass && !sec.isEncrypted(c.pass)) { c.pass = encryptPass(c.pass); migrated++; }
@@ -52,7 +54,7 @@ const save = () => writeJson(CAMERAS_FILE, cameras);
 }
 
 // ---------- Grupos/áreas (lista própria para permitir grupos vazios) ----------
-let savedGroups = readJson(GROUPS_FILE, []);
+let savedGroups = readJson(GROUPS_FILE, demo.DEMO ? demo.groups : []);
 const saveGroups = () => writeJson(GROUPS_FILE, savedGroups);
 const allGroups = () => [...new Set([...savedGroups, ...cameras.map((c) => c.group).filter(Boolean)])].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 function groupName(v) {
@@ -86,6 +88,7 @@ const tcpCheck = (host, port) => new Promise((resolve) => {
   s.on('error', () => resolve(false));
 });
 async function checkOnline() {
+  if (demo.DEMO) { for (const c of cameras) online.set(c.id, !c.demoOffline); return; } // demo: não abre conexões de rede
   const list = cameras.slice();
   let i = 0;
   const worker = async () => { while (i < list.length) { const c = list[i++]; online.set(c.id, await tcpCheck(c.host, c.port || 554)); } };
@@ -123,6 +126,7 @@ const thumbs = new Map();  // camId -> último JPEG visto (mostrado na hora enqu
 const fullProbe = new Set();
 function ffArgs(cam, quality) {
   const Q = QUALITY[quality];
+  if (demo.DEMO) return ['-hide_banner', '-loglevel', 'error', ...demo.inputArgs(cam, Q.w, Q.fps), '-an', '-q:v', String(Q.q), '-f', 'mpjpeg', '-boundary_tag', 'vms', 'pipe:1'];
   return [
     '-hide_banner', '-loglevel', 'error',
     ...(fullProbe.has(cam.id) ? [] : ['-probesize', '32768', '-analyzeduration', '0']),
@@ -224,12 +228,11 @@ function startRecording(cam) {
   const dir = camDir(cam.id);
   fs.mkdirSync(dir, { recursive: true });
   let url;
-  try { url = buildUrl(cam, 'main'); } catch (e) { recs.set(cam.id, { proc: null, err: e.message, stopping: false, timer: null }); return; }
+  try { url = demo.DEMO ? null : buildUrl(cam, 'main'); } catch (e) { recs.set(cam.id, { proc: null, err: e.message, stopping: false, timer: null }); return; }
   const args = [
     '-hide_banner', '-loglevel', 'error',
-    '-rtsp_transport', 'tcp', '-timeout', '10000000',
-    '-i', url,
-    '-map', '0:v:0', '-c:v', 'copy', '-an',
+    ...(demo.DEMO ? demo.inputArgs(cam, 854, 10) : ['-rtsp_transport', 'tcp', '-timeout', '10000000', '-i', url]),
+    '-map', '0:v:0', ...(demo.DEMO ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-g', '20'] : ['-c:v', 'copy']), '-an',
     '-f', 'segment', '-segment_time', String(SEGMENT_SECONDS), '-segment_format', 'mp4',
     '-reset_timestamps', '1', '-strftime', '1', '%Y%m%d_%H%M%S.mp4',
   ];
@@ -315,6 +318,7 @@ function serveVideo(req, res, file) {
   fs.createReadStream(file, { start, end }).pipe(res);
 }
 
+if (demo.DEMO) demo.seedRecordings(cameras, REC_DIR, FFMPEG, console.log);
 for (const c of cameras) if (c.record) startRecording(c);
 
 // ---------- Ao vivo multiplexado: todas as câmeras da tela em UMA conexão ----------
@@ -355,6 +359,10 @@ function serveLive(req, res, url, token) {
 let users = readJson(USERS_FILE, []);
 const saveUsers = () => writeJson(USERS_FILE, users);
 const ROLES = ['admin', 'operator'];
+if (demo.DEMO && !users.length) {
+  Promise.all(demo.USERS.map(async (u) => ({ id: crypto.randomUUID(), username: u.username, role: u.role, hash: await sec.hashPassword(u.password), createdAt: new Date().toISOString() })))
+    .then((list) => { if (!users.length) { users.push(...list); saveUsers(); } });
+}
 const publicUser = (u) => ({ id: u.id, username: u.username, role: u.role, createdAt: u.createdAt });
 const sessions = new Map(); // token -> { userId, expires }
 const SESSION_MS = SESSION_HOURS * 3600000;
@@ -525,8 +533,8 @@ const clientIp = (req) => req.socket.remoteAddress || '?';
 
 async function handleAuth(req, res, p, session) {
   if (p === '/api/auth/me' && req.method === 'GET') {
-    if (!session) return json(res, 401, { error: 'Não autenticado', setupRequired: users.length === 0 });
-    return json(res, 200, { user: publicUser(session.user) });
+    if (!session) return json(res, 401, { error: 'Não autenticado', setupRequired: users.length === 0 && !demo.DEMO, ...(demo.DEMO ? { demo: demo.USERS.map(({ username, password, role }) => ({ username, password, role })) } : {}) });
+    return json(res, 200, { user: publicUser(session.user), demo: demo.DEMO });
   }
   if (p === '/api/auth/setup' && req.method === 'POST') { // cria o primeiro administrador (só quando não há usuários)
     if (users.length) return json(res, 409, { error: 'O sistema já foi configurado' });
@@ -752,8 +760,8 @@ http.createServer(async (req, res) => {
     else res.destroy();
   }
 }).listen(PORT, HOST, () => {
-  console.log(`Mini VMS em http://${HOST}:${PORT}`);
-  if (!users.length) console.log('Nenhum usuário ainda: abra o endereço acima para criar o administrador.');
+  console.log(`Mini VMS em http://${HOST}:${PORT}${demo.DEMO ? '  [MODO DEMONSTRAÇÃO: câmeras simuladas]' : ''}`);
+  if (!users.length && !demo.DEMO) console.log('Nenhum usuário ainda: abra o endereço acima para criar o administrador.');
 });
 
 async function shutdown() {

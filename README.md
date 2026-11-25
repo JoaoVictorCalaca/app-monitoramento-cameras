@@ -9,6 +9,16 @@ Software web de monitoramento de câmeras IP inspirado no Hikvision iVMS-4200: v
 - Node.js 18+
 - FFmpeg no PATH (ou `FFMPEG_PATH=C:\caminho\ffmpeg.exe`). Windows: `winget install Gyan.FFmpeg`
 
+## Testar sem câmeras (modo demonstração)
+```bash
+npm run demo
+```
+Abra http://127.0.0.1:3000 e use os botões **Entrar como admin** / **Entrar como operador**. Sobe 16 câmeras simuladas em 4 grupos (uma delas "caída", para mostrar o estado de erro), 3 já gravando e com horas de gravações de exemplo na aba Gravações. Na primeira execução compila a interface sozinho.
+
+Como funciona: cada câmera é um vídeo gerado pelo FFmpeg (fundo animado, nome, relógio e um vulto em movimento), então ao vivo, gravação e reprodução passam pelo mesmo caminho do RTSP real, e nenhuma conexão de rede é aberta. Os dados ficam em `data-demo/`, separados de `data/`. Precisa só de Node 18+ e FFmpeg.
+
+Contas da demo: `admin` / `demo1234` (tudo) e `visitante` / `visitante1` (só visualiza).
+
 ## Rodar
 ```powershell
 npm --prefix web install

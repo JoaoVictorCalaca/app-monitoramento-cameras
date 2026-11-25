@@ -1,0 +1,13 @@
+{
+  "name": "mini-vms",
+  "version": "1.0.0",
+  "description": "Monitoramento web de câmeras IP (ao vivo, gravação e reprodução), inspirado no Hikvision iVMS-4200",
+  "license": "MIT",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "npm --prefix web install && npm --prefix web run build",
+    "start": "node server.js",
+    "demo": "node scripts/demo.js"
+  }
+}

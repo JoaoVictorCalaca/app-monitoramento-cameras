@@ -9,3 +9,6 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# Dados da demonstração (gerados ao rodar `npm run demo`)
+data-demo/

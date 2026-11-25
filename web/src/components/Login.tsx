@@ -1,15 +1,23 @@
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useState } from 'react'
-import { CctvIcon, Loader2, LogIn, ShieldCheck } from 'lucide-react'
+import { CctvIcon, FlaskConical, Loader2, LogIn, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api, type User } from '@/lib/api'
 
 // Tela de login. Com setup=true, cria o primeiro administrador (só aparece enquanto não existe nenhum usuário).
-export function LoginPage({ setup, onLogin }: { setup: boolean; onLogin: (u: User) => void }) {
+export type DemoAccount = { username: string; password: string; role: string }
+
+export function LoginPage({ setup, demo, onLogin }: { setup: boolean; demo?: DemoAccount[]; onLogin: (u: User) => void }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  async function enter(username: string, password: string) {
+    setBusy(true); setError('')
+    try { onLogin((await api.login(username, password)).user) }
+    catch (err) { setError((err as Error).message); setBusy(false) }
+  }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -43,6 +51,19 @@ export function LoginPage({ setup, onLogin }: { setup: boolean; onLogin: (u: Use
           <div className="mb-4 flex gap-2 rounded-md border border-primary/30 bg-primary/10 p-3 text-xs text-foreground">
             <ShieldCheck className="size-4 shrink-0 text-primary" />
             Crie o usuário administrador. Ele poderá cadastrar câmeras e outros usuários.
+          </div>
+        )}
+        {demo && (
+          <div className="mb-4 grid gap-2 rounded-md border border-primary/30 bg-primary/10 p-3 text-xs">
+            <div className="flex items-center gap-2 font-medium"><FlaskConical className="size-4 text-primary" />Modo demonstração: câmeras simuladas</div>
+            <div className="grid grid-cols-2 gap-2">
+              {demo.map((a) => (
+                <Button key={a.username} type="button" size="sm" variant="outline" disabled={busy} onClick={() => enter(a.username, a.password)}>
+                  {a.role === 'admin' ? 'Entrar como admin' : 'Entrar como operador'}
+                </Button>
+              ))}
+            </div>
+            <div className="text-muted-foreground">{demo.map((a) => `${a.username} / ${a.password}`).join(' · ')}</div>
           </div>
         )}
         <form onSubmit={submit} className="grid gap-3">
