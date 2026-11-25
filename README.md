@@ -2,6 +2,27 @@
 
 Software web de monitoramento de câmeras IP inspirado no Hikvision iVMS-4200: visualização ao vivo em grade, gravação e playback.
 
+![Grade de câmeras ao vivo (tema escuro)](docs/screenshots/grade-escura.jpg)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/grade-clara.jpg" alt="Grade 4×4 no tema claro"></td>
+    <td width="50%"><img src="docs/screenshots/gravacoes.jpg" alt="Gravações com linha do tempo de 24 horas"></td>
+  </tr>
+  <tr>
+    <td align="center">Tema claro, grade 4×4</td>
+    <td align="center">Gravações com linha do tempo</td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/mobile-grade.jpg" alt="Versão mobile: grade de câmeras" width="260">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/mobile-gaveta.jpg" alt="Versão mobile: gaveta com a lista de câmeras" width="260">
+</p>
+
+Capturas feitas com o [modo demonstração](#testar-sem-câmeras-modo-demonstração), que usa câmeras simuladas.
+
 - **Servidor:** Node.js sem dependências (`server.js`), usa FFmpeg para RTSP.
 - **Interface:** React + Vite + Tailwind + shadcn/ui (pasta `web/`), compilada para `public/`.
 
