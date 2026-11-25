@@ -241,7 +241,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
         </div>
       )}
 
-      {/* clique direito na área vazia abre o menu de contexto (grupos e câmeras param a propagação) */}
+      {/* clique direito na área vazia abre o menu de contexto (toda a barra lateral, exceto campos de texto) */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
         {tree.length === 0 &&<div className="px-4 py-8 text-center text-sm text-muted-foreground">{groupQuery ? 'Nenhum grupo encontrado' : 'Nenhuma câmera encontrada'}</div>}
         {tree.map(([g, list]) => {
@@ -253,7 +253,7 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver((d) => (d === g ? null : d)) }}
               onDrop={(e) => onGroupDrop(e, g)}
               className={'mb-0.5 shrink-0 rounded-md transition-colors ' + (over ? 'bg-primary/15 ring-1 ring-primary' : dragging ? 'ring-1 ring-dashed ring-border' : '')}>
-              <div onContextMenu={(e) => e.stopPropagation()}
+              <div
                 className={'group/g flex items-center gap-1 rounded-md px-1 py-1 text-xs font-medium ' + (groupFilter === g ? 'text-primary' : 'text-muted-foreground')}>
                 {renaming === g ? (
                   <Input autoFocus defaultValue={g} className="h-6 text-xs" maxLength={60}
@@ -299,13 +299,12 @@ export function CameraTree({ cams, match, filtering, groups, activeId, groupFilt
                 )}
               </div>
               {!isClosed && list.length === 0 && (
-                <div onContextMenu={(e) => e.stopPropagation()} className="ml-5 mr-1 mb-1 rounded border border-dashed px-2 py-2 text-center text-[11px] text-muted-foreground/70">{canEdit ? 'Arraste câmeras para cá' : 'Grupo vazio'}</div>
+                <div className="ml-5 mr-1 mb-1 rounded border border-dashed px-2 py-2 text-center text-[11px] text-muted-foreground/70">{canEdit ? 'Arraste câmeras para cá' : 'Grupo vazio'}</div>
               )}
               {!isClosed && list.map((c) => {
                 const sel = selected.has(c.id)
                 return (
                   <div key={c.id} draggable={canEdit} onDragStart={(e) => onDragStart(e, c)} onDragEnd={onDragEnd} onClick={(e) => onItemClick(e, c)}
-                    onContextMenu={(e) => e.stopPropagation()}
                     className={'group flex cursor-pointer items-center gap-2 rounded-md py-1.5 pl-2 pr-1 ' +
                       (sel ? 'bg-primary/15 ' : activeId === c.id ? 'bg-accent ' : 'hover:bg-accent ')}>
                     {canEdit && <GripVertical className="size-3.5 shrink-0 cursor-grab text-muted-foreground/40 group-hover:text-muted-foreground" />}
