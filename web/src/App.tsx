@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   CctvIcon, ChevronLeft, ChevronRight, Circle, Expand, FolderOpen, LayoutGrid,
-  PanelLeftClose, PanelLeftOpen, Plus, Repeat, Search, X,
+  PanelLeftClose, PanelLeftOpen, Play, Plus, Repeat, Search, Video, X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,8 +18,10 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserMenu } from '@/components/UserMenu'
 import { lazy, Suspense } from 'react'
 import { api, type Camera, type User } from '@/lib/api'
+import { useIsMobile } from '@/lib/mobile'
 
 const LAYOUTS = [1, 2, 3, 4, 5, 6, 7, 8] // até 8x8 = 64 câmeras por página
+const MOBILE_LAYOUTS = [1, 2, 3] // no celular: 1 coluna (padrão), 2 ou 3
 const SEQ_OPTIONS = [10, 20, 30, 60]
 
 const ls = {
@@ -58,7 +60,11 @@ const CameraDialog = lazy(() => import('@/components/CameraDialog').then((m) => 
 export default function App({ user, onLogout }: { user: User; onLogout: () => void }) {
   const canEdit = user.role === 'admin' // operador só visualiza
   const [cams, setCams] = useState<Camera[]>([])
-  const [layout, setLayout] = useState(() => Math.min(8, Math.max(1, Number(ls.get('layout')) || 2)))
+  const mobile = useIsMobile()
+  const [drawer, setDrawer] = useState(false) // gaveta da lista de câmeras (só no celular)
+  const [layoutD, setLayout] = useState(() => Math.min(8, Math.max(1, Number(ls.get('layout')) || 2)))
+  const [layoutM, setLayoutM] = useState(() => Math.min(3, Math.max(1, Number(ls.get('layoutM')) || 1)))
+  const layout = mobile ? layoutM : layoutD
   const [focus, setFocus] = useState<string | null>(null)
   const [dialog, setDialog] = useState<{ open: boolean; camera?: Camera }>({ open: false })
   const [groups, setGroups] = useState<string[]>([])
@@ -101,6 +107,8 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
   }, [seq, seqSec, pages, focus, view])
 
   const n = focus ? 1 : layout
+  // celular: telas altas, então a grade só tem colunas e as janelas ficam em 16:9 com rolagem
+  const rowsAuto = mobile && !focus
   const visible = focus ? cams.filter((c) => c.id === focus) : filtered.slice(page * perPage, page * perPage + perPage)
 
   // atalhos: Ctrl+B barra lateral, ←/→ páginas, Esc sai da câmera ampliada
@@ -142,8 +150,19 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
   recRef.current = toggleRec
 
   function pick(c: Camera) {
+    setDrawer(false)
     if (view === 'playback') { setPbCam(c.id); return }
     setFocus(focus === c.id ? null : c.id)
+  }
+
+  // deslizar para os lados troca de página (celular)
+  const swipe = useRef<{ x: number; y: number } | null>(null)
+  const onSwipeStart = (e: React.TouchEvent) => { swipe.current = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null }
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s0 = swipe.current; swipe.current = null
+    if (!s0 || focus || pages < 2) return
+    const dx = e.changedTouches[0].clientX - s0.x, dy = e.changedTouches[0].clientY - s0.y
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 2) setPage((p) => (dx < 0 ? (p + 1) % pages : (p - 1 + pages) % pages))
   }
 
   const counts = useMemo(() => ({
@@ -154,10 +173,13 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen flex-col bg-background text-foreground">
+      <div className="flex h-dvh flex-col bg-background pt-[env(safe-area-inset-top)] text-foreground">
         <div className="flex min-h-0 flex-1">
-          <aside className={'shrink-0 overflow-hidden bg-card transition-[width] duration-200 ' + (collapsed ? 'w-0' : 'w-72 border-r')}>
-            <div className="flex h-full w-72 flex-col">
+          {mobile && drawer && <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setDrawer(false)} />}
+          <aside className={mobile
+            ? 'fixed inset-y-0 left-0 z-50 w-[85vw] max-w-80 overflow-hidden border-r bg-card pt-[env(safe-area-inset-top)] transition-transform duration-200 ' + (drawer ? 'translate-x-0' : '-translate-x-full')
+            : 'shrink-0 overflow-hidden bg-card transition-[width] duration-200 ' + (collapsed ? 'w-0' : 'w-72 border-r')}>
+            <div className={'flex h-full flex-col ' + (mobile ? 'w-full' : 'w-72')}>
               <CameraTree
                 top={<>
               <div className="flex items-center gap-2 px-4 py-4">
@@ -199,19 +221,19 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
           </aside>
 
           <main className="flex min-w-0 flex-1 flex-col">
-            <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+            <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2 max-md:gap-1.5 max-md:px-2">
               <Tooltip>
-                <TooltipTrigger render={<Button size="icon-sm" variant="ghost" onClick={toggleSidebar} />}>
-                  {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+                <TooltipTrigger render={<Button size="icon-sm" variant="ghost" onClick={mobile ? () => setDrawer(true) : toggleSidebar} />}>
+                  {mobile ? <Video /> : collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
                 </TooltipTrigger>
-                <TooltipContent>{collapsed ? 'Mostrar' : 'Recolher'} barra lateral (Ctrl+B)</TooltipContent>
+                <TooltipContent>{mobile ? 'Lista de câmeras' : `${collapsed ? 'Mostrar' : 'Recolher'} barra lateral (Ctrl+B)`}</TooltipContent>
               </Tooltip>
-              <Tabs value={view} onValueChange={(v) => setView(v as 'live' | 'playback')}>
+              {mobile ? <span className="text-sm font-semibold">Mini VMS</span> : <Tabs value={view} onValueChange={(v) => setView(v as 'live' | 'playback')}>
                 <TabsList>
                   <TabsTrigger value="live">Ao vivo</TabsTrigger>
                   <TabsTrigger value="playback">Gravações</TabsTrigger>
                 </TabsList>
-              </Tabs>
+              </Tabs>}
               {view === 'live' && focus && <Button size="sm" variant="outline" onClick={() => setFocus(null)}><ChevronLeft />Voltar à grade</Button>}
               {view === 'live' && groupFilter !== null && !focus && (
                 <Badge variant="secondary" className="gap-1">
@@ -228,7 +250,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
                     <span className="min-w-16 text-center text-xs tabular-nums text-muted-foreground">Página {page + 1}/{pages}</span>
                     <Button size="icon-sm" variant="ghost" disabled={pages < 2} onClick={() => setPage((p) => (p + 1) % pages)}><ChevronRight /></Button>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 max-md:hidden">
                     <Tooltip>
                       <TooltipTrigger render={<Button size="icon-sm" variant={seq ? 'default' : 'ghost'} disabled={pages < 2} onClick={() => setSeq((s) => !s)} />}>
                         <Repeat />
@@ -242,17 +264,17 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
                       </Select>
                     )}
                   </div>
-                  <Separator orientation="vertical" className="h-5" />
+                  <Separator orientation="vertical" className="h-5 max-md:hidden" />
                   <div className="flex items-center gap-1.5">
                     <LayoutGrid className="size-4 text-muted-foreground" />
-                    <Select value={String(layout)} onValueChange={(v) => { if (!v) return; setLayout(Number(v)); setFocus(null); ls.set('layout', v) }}>
+                    <Select value={String(layout)} onValueChange={(v) => { if (!v) return; setFocus(null); if (mobile) { setLayoutM(Number(v)); ls.set('layoutM', v) } else { setLayout(Number(v)); ls.set('layout', v) } }}>
                       <SelectTrigger size="sm" className="w-20"><SelectValue>{layout}×{layout}</SelectValue></SelectTrigger>
-                      <SelectContent>{LAYOUTS.map((v) => <SelectItem key={v} value={String(v)}>{v}×{v} ({v * v})</SelectItem>)}</SelectContent>
+                      <SelectContent>{(mobile ? MOBILE_LAYOUTS : LAYOUTS).map((v) => <SelectItem key={v} value={String(v)}>{v}×{v} ({v * v})</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </>
               )}
-              {view === 'live' && (
+              {view === 'live' && !mobile && (
                 <Tooltip>
                   <TooltipTrigger render={<Button size="icon-sm" variant="outline" onClick={() => gridRef.current?.requestFullscreen()} />}>
                     <Expand />
@@ -260,19 +282,20 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
                   <TooltipContent>Tela cheia (só as câmeras)</TooltipContent>
                 </Tooltip>
               )}
-              <Separator orientation="vertical" className="h-5" />
+              <Separator orientation="vertical" className="h-5 max-md:hidden" />
               <ThemeToggle />
               <UserMenu user={user} onLogout={onLogout} onDataChanged={load} />
             </header>
 
             {view === 'live' ? (
-              <div ref={gridRef} className="grid min-h-0 flex-1 gap-1 bg-background p-1.5"
-                style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${n}, minmax(0, 1fr))` }}>
-                {Array.from({ length: n * n }, (_, i) => {
+              <div ref={gridRef} className={'grid min-h-0 flex-1 gap-1 bg-background p-1.5 ' + (rowsAuto ? 'auto-rows-min content-start overflow-y-auto overscroll-contain' : '')}
+                onTouchStart={mobile ? onSwipeStart : undefined} onTouchEnd={mobile ? onSwipeEnd : undefined}
+                style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`, ...(rowsAuto ? {} : { gridTemplateRows: `repeat(${n}, minmax(0, 1fr))` }) }}>
+                {Array.from({ length: rowsAuto ? visible.length : n * n }, (_, i) => {
                   const c = visible[i]
                   return c ? (
-                    <ErrorBoundary key={c.id + (focus ? '-hd' : '')} compact><CameraCell cam={c} hd={!!focus} low={layout >= 5}
-                      onToggleFocus={toggleFocus} onToggleRec={canEdit ? recStable : undefined} /></ErrorBoundary>
+                    <ErrorBoundary key={c.id + (focus ? '-hd' : '')} compact><div className={rowsAuto ? 'aspect-video' : 'contents'}><CameraCell cam={c} hd={!!focus} low={layout >= 5}
+                      onToggleFocus={toggleFocus} onToggleRec={canEdit ? recStable : undefined} /></div></ErrorBoundary>
                   ) : (
                     <div key={'e' + i} className="flex items-center justify-center rounded-md border border-dashed text-muted-foreground/30"><CctvIcon className="size-4" /></div>
                   )
@@ -285,7 +308,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
         </div>
 
         {/* barra de status, como no rodapé do iVMS */}
-        <footer className="flex items-center gap-4 border-t bg-card px-3 py-1 text-[11px] text-muted-foreground">
+        <footer className="flex items-center gap-4 border-t bg-card px-3 py-1 text-[11px] text-muted-foreground max-md:hidden">
           <span className="flex items-center gap-1.5"><StatusDot online={true} />{counts.online} online</span>
           <span className="flex items-center gap-1.5"><StatusDot online={false} />{counts.offline} offline</span>
           <span>{cams.length} câmeras</span>
@@ -294,6 +317,22 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
           <div className="flex-1" />
           <Clock />
         </footer>
+
+        {/* navegação inferior (celular) */}
+        {mobile && (
+          <nav className="flex border-t bg-card pb-[env(safe-area-inset-bottom)]">
+            {([['live', 'Ao vivo', Video], ['playback', 'Gravações', Play]] as const).map(([v, label, Icon]) => (
+              <button key={v} onClick={() => { setView(v); setDrawer(false) }}
+                className={'flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] ' + (view === v ? 'text-primary' : 'text-muted-foreground')}>
+                <Icon className="size-5" />{label}
+              </button>
+            ))}
+            <button onClick={() => setDrawer(true)} className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground">
+              <CctvIcon className="size-5" />
+              <span className="flex items-center gap-1"><StatusDot online={counts.offline ? false : true} />{counts.online}/{cams.length}</span>
+            </button>
+          </nav>
+        )}
       </div>
       {dialog.open && <Suspense fallback={null}><CameraDialog open={dialog.open} camera={dialog.camera}
         onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))} onSaved={load} /></Suspense>}

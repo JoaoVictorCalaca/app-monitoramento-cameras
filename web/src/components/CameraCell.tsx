@@ -87,6 +87,33 @@ export const CameraCell = memo(function CameraCell({ cam, hd, low, onToggleFocus
     return () => el.removeEventListener('wheel', fn)
   }, [])
 
+  // toque: um dedo arrasta, dois dedos fazem pinça; toque duplo amplia/volta
+  const touch = useRef<{ d: number; s: number; x: number; y: number; px: number; py: number } | null>(null)
+  const lastTap = useRef(0), lastTouchAt = useRef(0)
+  const dist = (t: React.TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+  function onTouchStart(e: React.TouchEvent) {
+    lastTouchAt.current = Date.now()
+    if (e.touches.length === 2) touch.current = { d: dist(e.touches), s: zoom.s, x: zoom.x, y: zoom.y, px: 0, py: 0 }
+    else if (e.touches.length === 1) {
+      const t = e.touches[0]
+      touch.current = { d: 0, s: zoom.s, x: zoom.x, y: zoom.y, px: t.clientX, py: t.clientY }
+      const now = Date.now()
+      if (now - lastTap.current < 300) { onToggleFocus(cam.id); lastTap.current = 0 } else lastTap.current = now
+    }
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    const g = touch.current
+    if (!g || !hd) return
+    if (e.touches.length === 2 && g.d) {
+      const s = Math.min(8, Math.max(1, g.s * (dist(e.touches) / g.d)))
+      const k = s / g.s
+      setZoom(clamp(s, g.x * k, g.y * k))
+    } else if (e.touches.length === 1 && !g.d && g.s > 1) {
+      const t = e.touches[0], nx = g.x + t.clientX - g.px, ny = g.y + t.clientY - g.py
+      setZoom((z) => clamp(z.s, nx, ny))
+    }
+  }
+
   const showImg = state === 'live' || state === 'preview'
   const tool = 'bg-black/60 text-white backdrop-blur hover:bg-black/80'
 
@@ -94,7 +121,11 @@ export const CameraCell = memo(function CameraCell({ cam, hd, low, onToggleFocus
     <div
       className="group relative flex items-center justify-center overflow-hidden rounded-md border bg-black select-none"
       ref={box}
-      onDoubleClick={() => onToggleFocus(cam.id)}
+      onDoubleClick={() => { if (Date.now() - lastTouchAt.current > 700) onToggleFocus(cam.id) }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={() => { touch.current = null }}
+      style={{ touchAction: hd ? 'none' : 'manipulation' }}
       onMouseDown={(e) => { if (zoom.s > 1) drag.current = { x: e.clientX - zoom.x, y: e.clientY - zoom.y } }}
       onMouseMove={(e) => { const d = drag.current; if (d) { const nx = e.clientX - d.x, ny = e.clientY - d.y; setZoom((z) => clamp(z.s, nx, ny)) } }}
       onMouseUp={() => { drag.current = null }}
@@ -121,7 +152,7 @@ export const CameraCell = memo(function CameraCell({ cam, hd, low, onToggleFocus
         {zoom.s > 1 && <Badge variant="outline" className="bg-black/60 text-white">{zoom.s.toFixed(1)}×</Badge>}
       </div>
       {/* barra de ferramentas da janela (como no iVMS): captura, gravação, zoom, ampliar */}
-      <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100" onDoubleClick={(e) => e.stopPropagation()}>
+      <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100" onDoubleClick={(e) => e.stopPropagation()}>
         <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={snapshot} />}><CameraIcon /></TooltipTrigger><TooltipContent>Capturar imagem</TooltipContent></Tooltip>
         {onToggleRec && <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={() => onToggleRec(cam)} />}><Circle className={cam.record ? 'fill-red-500 text-red-500' : ''} /></TooltipTrigger><TooltipContent>{cam.record ? 'Parar gravação' : 'Gravar'}</TooltipContent></Tooltip>}
         {zoom.s > 1 && <Tooltip><TooltipTrigger render={<Button size="icon-xs" className={tool} onClick={() => setZoom({ s: 1, x: 0, y: 0 })} />}><RotateCcw /></TooltipTrigger><TooltipContent>Desfazer zoom</TooltipContent></Tooltip>}

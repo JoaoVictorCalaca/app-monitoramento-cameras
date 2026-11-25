@@ -58,14 +58,14 @@ export function Playback({ cams, camId, setCamId }: { cams: Camera[]; camId: str
   const url = curSeg && camId ? `/rec/${camId}/${curSeg.file}` : undefined
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Select value={camId ?? ''} onValueChange={(v) => v && setCamId(v)}>
-          <SelectTrigger className="w-56"><SelectValue placeholder="Câmera">{cam?.name}</SelectValue></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Câmera">{cam?.name}</SelectValue></SelectTrigger>
           <SelectContent>{cams.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
         </Select>
         <Button size="icon-sm" variant="outline" onClick={() => shiftDay(-1)}><ChevronLeft /></Button>
-        <Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className="w-40" />
+        <Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className="min-w-0 flex-1 sm:w-40 sm:flex-none" />
         <Button size="icon-sm" variant="outline" onClick={() => shiftDay(1)}><ChevronRight /></Button>
         <div className="flex-1" />
         <Button size="icon-sm" variant="outline" disabled={!curSeg} onClick={() => { if (video.current) video.current.currentTime -= 10 }}><SkipBack /></Button>
@@ -79,7 +79,7 @@ export function Playback({ cams, camId, setCamId }: { cams: Camera[]; camId: str
         )}
       </div>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border bg-black">
+      <div className="relative flex min-h-[40vw] flex-1 items-center justify-center overflow-hidden rounded-lg border bg-black">
         {url ? (
           <video
             ref={video} src={url} controls autoPlay className="h-full w-full object-contain"
