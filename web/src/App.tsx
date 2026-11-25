@@ -284,7 +284,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
               )}
               <Separator orientation="vertical" className="h-5 max-md:hidden" />
               <ThemeToggle />
-              <UserMenu user={user} onLogout={onLogout} onDataChanged={load} />
+              {!mobile && <UserMenu user={user} onLogout={onLogout} onDataChanged={load} />}
             </header>
 
             {view === 'live' ? (
@@ -331,6 +331,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
               <CctvIcon className="size-5" />
               <span className="flex items-center gap-1"><StatusDot online={counts.offline ? false : true} />{counts.online}/{cams.length}</span>
             </button>
+            <UserMenu nav user={user} onLogout={onLogout} onDataChanged={load} />
           </nav>
         )}
       </div>

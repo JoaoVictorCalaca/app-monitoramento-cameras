@@ -27,7 +27,7 @@ function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }
 
-export function UserMenu({ user, onLogout, onDataChanged }: { user: User; onLogout: () => void; onDataChanged: () => void }) {
+export function UserMenu({ user, onLogout, onDataChanged, nav }: { user: User; onLogout: () => void; onDataChanged: () => void; nav?: boolean }) {
   const [dialog, setDialog] = useState<null | 'password' | 'users' | 'transfer'>(null)
   const isAdmin = user.role === 'admin'
   const close = (o: boolean) => { if (!o) setDialog(null) }
@@ -40,12 +40,14 @@ export function UserMenu({ user, onLogout, onDataChanged }: { user: User; onLogo
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button size="sm" variant="ghost" className="gap-2" />}>
-          <span className="flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold uppercase text-primary">{user.username.slice(0, 2)}</span>
-          <span className="hidden max-w-28 truncate sm:inline">{user.username}</span>
-          <ChevronDown className="size-3.5 text-muted-foreground" />
+        <DropdownMenuTrigger render={nav
+          ? <button className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground" />
+          : <Button size="sm" variant="ghost" className="gap-2" />}>
+          <span className={'flex items-center justify-center rounded-full bg-primary/15 font-semibold uppercase text-primary ' + (nav ? 'size-5 text-[10px]' : 'size-6 text-xs')}>{user.username.slice(0, 2)}</span>
+          {nav ? <span className="max-w-16 truncate">{user.username}</span> : <span className="hidden max-w-28 truncate sm:inline">{user.username}</span>}
+          {!nav && <ChevronDown className="size-3.5 text-muted-foreground" />}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuContent align="end" side={nav ? 'top' : undefined} className="w-60">
           <DropdownMenuGroup>
             <DropdownMenuLabel>
               <div className="text-sm font-medium text-foreground">{user.username}</div>
