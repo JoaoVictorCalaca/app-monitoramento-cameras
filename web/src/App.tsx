@@ -30,7 +30,7 @@ const ls = {
   set: (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* ignora */ } },
 }
 
-// Filtro: nome ou IP (parcial), ou faixa de IP "192.168.3.10-50"
+// Filtro: nome ou IP (parcial), ou faixa de IP "192.168.1.10-50"
 function matcher(query: string) {
   const q = query.trim().toLowerCase()
   if (!q) return () => true
@@ -202,7 +202,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {query ? `${searched.length} de ${cams.length} câmeras` : `${cams.length} câmeras · dica: faixa 192.168.3.10-50`}
+                  {query ? `${searched.length} de ${cams.length} câmeras` : `${cams.length} câmeras · dica: faixa 192.168.1.10-50`}
                 </div>
               </div>
               <Separator />

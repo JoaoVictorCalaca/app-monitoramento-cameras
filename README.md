@@ -38,7 +38,7 @@ Desenvolvimento da interface com recarga automática (com o servidor rodando): `
 
 **Câmeras**
 - Cadastro, edição e remoção. Modelos prontos para Hikvision, Intelbras, Dahua e RTSP genérico.
-- **Filtro por IP ou nome**, inclusive por faixa: `192.168.3.10-50`. O filtro vale para a lista e para a grade.
+- **Filtro por IP ou nome**, inclusive por faixa: `192.168.1.10-50`. O filtro vale para a lista e para a grade.
 - **Grupos/áreas** em árvore: criar (inclusive vazios), pesquisar, renomear (duplo clique) e excluir; "ver só este grupo na grade".
 - **Mover câmeras entre grupos arrastando e soltando.** Ctrl+clique seleciona várias, Shift+clique seleciona um intervalo, e o arraste leva toda a seleção. Cada movimento pode ser desfeito pelo aviso.
 - **Menu de contexto** (clique direito na área vazia da barra lateral): novo grupo, adicionar câmera, pesquisar grupos, expandir/recolher todos, selecionar câmeras visíveis.
