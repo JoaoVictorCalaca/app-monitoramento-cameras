@@ -1,3 +1,4 @@
+import { DocsLink } from '@/components/DocsLink'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useState } from 'react'
 import { CctvIcon, FlaskConical, Loader2, LogIn, ShieldCheck } from 'lucide-react'
@@ -89,6 +90,7 @@ export function LoginPage({ setup, demo, onLogin }: { setup: boolean; demo?: Dem
           </Button>
         </form>
       </div>
+      <DocsLink className="absolute bottom-3 left-1/2 -translate-x-1/2" />
     </div>
   )
 }

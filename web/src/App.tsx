@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CameraCell } from '@/components/CameraCell'
 import { confirmDialog } from '@/components/ConfirmHost'
+import { DocsLink } from '@/components/DocsLink'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CameraTree, NO_GROUP } from '@/components/CameraTree'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -216,7 +217,7 @@ export default function App({ user, onLogout }: { user: User; onLogout: () => vo
                 onAddCamera={() => setDialog({ open: true })}
                 canEdit={canEdit}
                 reload={load}
-                bottom={canEdit ? <><Separator /><div className="p-3"><Button className="w-full" onClick={() => setDialog({ open: true })}><Plus />Adicionar câmera</Button></div></> : undefined}
+                bottom={<><Separator /><div className="space-y-1 p-3">{canEdit && <Button className="w-full" onClick={() => setDialog({ open: true })}><Plus />Adicionar câmera</Button>}<DocsLink /></div></>}
               />
             </div>
           </aside>
